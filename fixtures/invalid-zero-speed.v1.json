@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "weld-plan",
+  "jobId": "00000000-0000-4000-8000-000000000001",
+  "revision": 0,
+  "workpiece": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "source": {
+      "filename": "sample-block.stl",
+      "byteLength": 684,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "encoding": "binary",
+      "unit": "mm",
+      "inputTriangles": 12,
+      "omittedDegenerateTriangles": 0
+    },
+    "frame": {
+      "id": "workpiece",
+      "lengthUnit": "mm",
+      "axes": "source_xyz",
+      "origin": "source_origin",
+      "handedness": "right"
+    },
+    "boundsMm": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        100,
+        100,
+        100
+      ]
+    }
+  },
+  "processProfile": "generic-arc-targets-v1",
+  "seams": [
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Sample seam",
+      "geometry": {
+        "type": "polyline",
+        "points": [
+          {
+            "id": "00000000-0000-4000-8000-000000000004",
+            "positionMm": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000005",
+            "positionMm": [
+              10,
+              0,
+              0
+            ]
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000006",
+            "positionMm": [
+              10,
+              0.5,
+              0
+            ]
+          }
+        ]
+      },
+      "parameters": {
+        "travelSpeedMmPerS": 0,
+        "currentTargetA": 120,
+        "voltageTargetV": 22
+      }
+    }
+  ],
+  "sequence": [
+    "00000000-0000-4000-8000-000000000003"
+  ],
+  "review": {
+    "rulesetVersion": "1.0.0",
+    "warnings": [
+      {
+        "code": "SHORT_SEGMENT",
+        "seamId": "00000000-0000-4000-8000-000000000003",
+        "startPointId": "00000000-0000-4000-8000-000000000005",
+        "endPointId": "00000000-0000-4000-8000-000000000006",
+        "valueMm": 0.5
+      },
+      {
+        "code": "TURN_ANGLE_HIGH",
+        "seamId": "00000000-0000-4000-8000-000000000003",
+        "pointId": "00000000-0000-4000-8000-000000000005",
+        "valueDeg": 90
+      }
+    ],
+    "notAssessed": [
+      "surface_conformance",
+      "process_suitability",
+      "torch_orientation",
+      "workpiece_to_robot_registration",
+      "robot_kinematics",
+      "collision_avoidance",
+      "motion_timing",
+      "inter_seam_transfers"
+    ]
+  }
+}
