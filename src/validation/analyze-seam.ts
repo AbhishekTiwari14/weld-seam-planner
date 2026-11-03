@@ -1,7 +1,7 @@
-import type { Bounds, Seam } from '../domain/contracts';
-import type { Finding } from '../domain/findings';
-import { measurePath, nominalArcOnTimeSeconds, PATH_DIAGNOSTICS } from '../geometry/path';
-import type { PathMetrics } from '../geometry/path';
+import type { Bounds, Seam } from '../domain/contracts.ts';
+import type { Finding } from '../domain/findings.ts';
+import { measurePath, nominalArcOnTimeSeconds, PATH_DIAGNOSTICS } from '../geometry/path.ts';
+import type { PathMetrics } from '../geometry/path.ts';
 
 export interface SeamAnalysis extends PathMetrics {
   nominalArcOnTimeSeconds: number | null;

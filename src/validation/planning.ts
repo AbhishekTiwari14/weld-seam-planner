@@ -1,10 +1,10 @@
-import { LIMITS, planningDocumentSchema } from '../domain/contracts';
-import type { PlanningDocument } from '../domain/contracts';
-import { PlanValidationError } from '../domain/findings';
-import type { Finding, FindingTarget } from '../domain/findings';
-import { coincidenceToleranceMm, createViewTransform } from '../geometry/coordinates';
-import { analyzeSeam } from './analyze-seam';
-import type { SeamAnalysis } from './analyze-seam';
+import { LIMITS, planningDocumentSchema } from '../domain/contracts.ts';
+import type { PlanningDocument } from '../domain/contracts.ts';
+import { PlanValidationError } from '../domain/findings.ts';
+import type { Finding, FindingTarget } from '../domain/findings.ts';
+import { coincidenceToleranceMm, createViewTransform } from '../geometry/coordinates.ts';
+import { analyzeSeam } from './analyze-seam.ts';
+import type { SeamAnalysis } from './analyze-seam.ts';
 
 export interface PlanningAnalysis {
   revision: number | null;

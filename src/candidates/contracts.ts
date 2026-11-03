@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { finiteSchema, idSchema, LIMITS, vec3Schema } from '../domain/contracts';
+import { finiteSchema, idSchema, LIMITS, vec3Schema } from '../domain/contracts.ts';
 
 export const candidateSchema = z.strictObject({
   candidateId: z.string().min(1).max(200),

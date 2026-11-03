@@ -1,5 +1,5 @@
-import type { PlanningDocument, Seam } from './contracts';
-import { requireValidPlanning } from '../validation/planning';
+import type { PlanningDocument, Seam } from './contracts.ts';
+import { requireValidPlanning } from '../validation/planning.ts';
 
 /** Pure operations: caller commits the returned document as one history transaction. */
 export function addSeam(input: PlanningDocument, seam: Seam): PlanningDocument {

@@ -23,8 +23,10 @@ export interface Finding {
 }
 
 export class PlanValidationError extends Error {
-  constructor(public readonly findings: readonly Finding[]) {
+  public readonly findings: readonly Finding[];
+  constructor(findings: readonly Finding[]) {
     super(findings.map((finding) => finding.message).join(' '));
+    this.findings = findings;
     this.name = 'PlanValidationError';
   }
 }

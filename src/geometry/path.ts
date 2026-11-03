@@ -1,5 +1,5 @@
-import type { Vec3 } from '../domain/contracts';
-import { finiteVector } from './coordinates';
+import type { Vec3 } from '../domain/contracts.ts';
+import { finiteVector } from './coordinates.ts';
 
 export const PATH_DIAGNOSTICS = {
   shortSegmentMm: 1,

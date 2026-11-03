@@ -1,8 +1,8 @@
-import { emptyParameters } from '../domain/contracts';
-import type { PlanningDocument, Seam } from '../domain/contracts';
-import { addSeam } from '../domain/operations';
-import { candidateSchema } from './contracts';
-import type { SeamCandidate } from './contracts';
+import { emptyParameters } from '../domain/contracts.ts';
+import type { PlanningDocument, Seam } from '../domain/contracts.ts';
+import { addSeam } from '../domain/operations.ts';
+import { candidateSchema } from './contracts.ts';
+import type { SeamCandidate } from './contracts.ts';
 
 /**
  * Caller must commit BOTH returned values atomically as one undoable transaction.

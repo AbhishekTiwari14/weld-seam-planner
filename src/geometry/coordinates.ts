@@ -1,4 +1,4 @@
-import type { Bounds, SourceUnit, Vec3 } from '../domain/contracts';
+import type { Bounds, SourceUnit, Vec3 } from '../domain/contracts.ts';
 
 export const MILLIMETRES_PER_UNIT: Readonly<Record<SourceUnit, number>> = {
   mm: 1, cm: 10, m: 1_000, in: 25.4,
