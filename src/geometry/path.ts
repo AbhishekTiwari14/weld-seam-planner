@@ -43,6 +43,7 @@ export interface PathMetrics {
 
 export function measurePath(points: readonly Vec3[], coincidenceMm = 1e-6): PathMetrics {
   if (points.length < 2) throw new RangeError('A path needs at least two points.');
+  if (!Number.isFinite(coincidenceMm) || coincidenceMm < 0) throw new RangeError('Invalid tolerance.');
   const segmentLengthsMm = points.slice(1).map((point, index) => distanceMm(points[index]!, point));
   const lengthMm = segmentLengthsMm.reduce((sum, length) => sum + length, 0);
   if (!Number.isFinite(lengthMm)) throw new RangeError('Path length exceeds the numeric range.');

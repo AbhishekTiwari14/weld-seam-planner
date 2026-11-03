@@ -44,7 +44,8 @@ export function validatePlanning(input: unknown, mode: 'planning' | 'export' = '
   checkId(workpiece.id, { kind: 'workpiece' });
   const source = workpiece.source;
   if (source.omittedDegenerateTriangles >= source.inputTriangles ||
-      (source.encoding === 'binary' && source.byteLength !== 84 + 50 * source.inputTriangles)) {
+      (source.encoding === 'binary' && (source.inputTriangles > 0xffffffff ||
+        source.byteLength !== 84 + 50 * source.inputTriangles))) {
     error('SOURCE_INCONSISTENT', 'Source triangle counts or binary byte length are inconsistent.', { kind: 'workpiece' });
   }
   if (source.omittedDegenerateTriangles > 0) {

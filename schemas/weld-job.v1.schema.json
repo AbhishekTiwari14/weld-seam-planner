@@ -34,7 +34,8 @@
             "filename": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 255
+              "maxLength": 255,
+              "pattern": "^[^/\\\\\\u0000-\\u001f]+$"
             },
             "byteLength": {
               "type": "integer",

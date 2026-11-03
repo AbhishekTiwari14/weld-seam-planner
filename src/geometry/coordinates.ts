@@ -5,7 +5,7 @@ export const MILLIMETRES_PER_UNIT: Readonly<Record<SourceUnit, number>> = {
 };
 
 export function finiteVector(point: readonly number[]): Vec3 {
-  if (point.length !== 3 || !point.every(Number.isFinite)) {
+  if (point.length !== 3 || !Number.isFinite(point[0]) || !Number.isFinite(point[1]) || !Number.isFinite(point[2])) {
     throw new RangeError('Expected three finite coordinates.');
   }
   return [point[0]!, point[1]!, point[2]!];

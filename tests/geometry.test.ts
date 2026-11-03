@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SourceUnit, Vec3 } from '../src/domain/contracts';
 import {
-  coincidenceToleranceMm, createViewTransform, sourceToWorkpiece, viewToWorkpiece,
+  coincidenceToleranceMm, createViewTransform, finiteVector, sourceToWorkpiece, viewToWorkpiece,
   workpieceToSource, workpieceToView,
 } from '../src/geometry/coordinates';
 import { distanceMm, measurePath, nominalArcOnTimeSeconds, turnAngleDeg } from '../src/geometry/path';
@@ -46,6 +46,7 @@ describe('units and workpiece/view frames', () => {
     expect(() => createViewTransform({ min: [1, 0, 0], max: [0, 1, 1] })).toThrow(RangeError);
     expect(() => sourceToWorkpiece([Number.MAX_VALUE, 0, 0], 'm')).toThrow(RangeError);
     expect(() => viewToWorkpiece([0, 0, 0], { centerMm: [0, 0, 0], scaleMm: 0 })).toThrow(RangeError);
+    expect(() => finiteVector(new Array<number>(3))).toThrow(RangeError);
   });
 });
 
@@ -88,6 +89,7 @@ describe('path measurements', () => {
 
   it('rejects non-finite geometry and overflowing distances', () => {
     expect(() => measurePath([[NaN, 0, 0], [1, 0, 0]])).toThrow(RangeError);
+    expect(() => measurePath([[0, 0, 0], [1, 0, 0]], NaN)).toThrow(RangeError);
     expect(() => distanceMm([-Number.MAX_VALUE, 0, 0], [Number.MAX_VALUE, 0, 0])).toThrow(RangeError);
   });
 });

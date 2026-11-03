@@ -27,7 +27,7 @@ export const boundsSchema = z.strictObject({ min: vec3Schema, max: vec3Schema })
 export const workpieceSchema = z.strictObject({
   id: idSchema,
   source: z.strictObject({
-    filename: z.string().min(1).max(255),
+    filename: z.string().min(1).max(255).regex(/^[^/\\\u0000-\u001f]+$/),
     byteLength: countSchema.min(1),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
     encoding: z.enum(['ascii', 'binary']),
