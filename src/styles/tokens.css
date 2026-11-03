@@ -1,0 +1,31 @@
+/* Hex labels transcribed from the supplied Armatrix colour-system master sheet.
+   SVG logo fills differ slightly; preserve those assets unchanged. See docs/branding.md. */
+:root {
+  --brand-dark-forest: #030500;
+  --brand-dark-forest-t1: #090d00;
+  --brand-dark-forest-t2: #0e1600;
+  --brand-dark-forest-t3: #141e00;
+  --brand-dark-forest-t4: #192600;
+  --brand-light-sand-s4: #93938d;
+  --brand-light-sand-s3: #ababa5;
+  --brand-light-sand-s2: #c5c5bd;
+  --brand-light-sand-s1: #dfdfd7;
+  --brand-light-sand: #f6f6ee;
+  --brand-revolution-green: #2b381f;
+  --brand-revolution-green-t1: #344425;
+  --brand-revolution-green-t2: #3d4f2c;
+  --brand-revolution-green-t3: #455b32;
+  --brand-revolution-green-t4: #628047;
+  --brand-bright-discovery: #e97f01;
+  --brand-bright-discovery-t1: #e98917;
+  --brand-bright-discovery-t2: #e9942f;
+  --brand-bright-discovery-t3: #e99e46;
+  --brand-bright-discovery-t4: #e9b475;
+
+  /* Application role choices, not additional official brand instructions. */
+  --font-ui: 'Onest', system-ui, sans-serif;
+  --color-background: var(--brand-light-sand);
+  --color-text: var(--brand-dark-forest);
+  --color-accent: var(--brand-revolution-green);
+  --color-highlight: var(--brand-bright-discovery);
+}
