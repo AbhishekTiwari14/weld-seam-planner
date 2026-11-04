@@ -33,6 +33,8 @@ For the future application header, use the supplied horizontal RGB SVG, with the
 
 No logo license/readme was found in `02 Logo System`. The assignment authorizes using the pack for this submission; that is not a general redistribution license. Milestone 1 does not bundle logos or print artwork. Future asset use must preserve provenance and avoid representing Armatrix artwork as project-owned or freely licensed.
 
+Milestone 2 bundles only the unmodified `03 Horizontal Logo/Web/SVG/armatrix-horizontal-logo-light-sand-rgb.svg` in `public/brand/`, for the dark application header. Its original `#F5F5EC` fill is preserved. The assignment's supplied-asset authorization applies; no general redistribution license is asserted. The complete pack and print artwork remain outside the repository.
+
 ## Font system and choices
 
 | Supplied family | Available files | Milestone 1 decision |

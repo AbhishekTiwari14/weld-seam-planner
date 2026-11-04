@@ -21,7 +21,8 @@ export function createImportController(createPort: () => ImportPort) {
   let generation = 0;
   let port: ImportPort | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  function stop() { clearTimeout(timer); port?.stop(); port = null; generation++; }
+  let confirmed = false;
+  function stop() { clearTimeout(timer); port?.stop(); port = null; confirmed = false; generation++; }
   function fail(message: string) {
     stop();
     store.setState({ preview: null, phase: 'idle', status: 'Import unsuccessful', error: message });
@@ -49,6 +50,7 @@ export function createImportController(createPort: () => ImportPort) {
             store.setState({ preview: response.preview, phase: 'confirming', status: 'Confirm physical units' });
             return;
           }
+          if (!confirmed) { fail('Unexpected import completion before unit confirmation.'); return; }
           try {
             const document = requireValidPlanning({ jobId: crypto.randomUUID(), revision: 0,
               content: { workpiece: response.asset.workpiece, processProfile: PROCESS_PROFILE, seamsById: {}, sequence: [] } });
@@ -63,8 +65,10 @@ export function createImportController(createPort: () => ImportPort) {
     confirm(unit: SourceUnit) {
       if (store.getState().phase !== 'confirming' || !port) return;
       store.setState({ phase: 'processing', status: 'Preparing display…' });
+      confirmed = true;
       deadline();
-      port.send({ type: 'prepare', unit });
+      try { port.send({ type: 'prepare', unit }); }
+      catch { fail('The browser could not prepare this model. Try importing again.'); }
     },
     cancel() {
       stop();

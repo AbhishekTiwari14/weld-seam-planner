@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { parseStl } from './parse-stl.ts';
 import { prepareAsset } from './prepare-asset.ts';
+import { assetTransferList, prepareAcceleration } from './acceleration.ts';
 import { IMPORT_SAFETY_LIMITS, type ImportPreview, type ParsedStl, type WorkerRequest, type WorkerResponse } from './types.ts';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
@@ -28,7 +29,9 @@ scope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       if (!parsed || !preview) throw new Error('No parsed model is available. Import the file again.');
       send({ type: 'status', message: 'Preparing millimetre geometry and display buffers…' });
       const asset = prepareAsset(parsed, preview, event.data.unit);
-      send({ type: 'ready', asset }, [asset.positionsMm.buffer, asset.displayPositions.buffer, asset.displayNormals.buffer]);
+      send({ type: 'status', message: 'Preparing surface-picking acceleration…' });
+      prepareAcceleration(asset);
+      send({ type: 'ready', asset }, assetTransferList(asset));
       parsed = undefined;
       preview = undefined;
     }

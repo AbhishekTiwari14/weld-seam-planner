@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "test:production": "node scripts/check-production.ts",
     "schema:generate": "node scripts/generate-contract.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
@@ -20,10 +22,12 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "three": "0.187.0",
+    "three-mesh-bvh": "0.9.18",
     "zod": "4.6.7",
     "zustand": "5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

@@ -1,5 +1,7 @@
 # Milestone 1 architecture
 
+This document records the foundation decisions. For the implemented Milestone 2 import/runtime/viewport lifecycle, see [Import and viewport ownership](import-viewer.md); its runtime implementation supersedes the future-tense importer notes below without changing the domain/export contracts.
+
 ## Boundaries
 
 - `src/domain`: Zod-backed contracts and immutable add/reorder/reverse operations. There is one sequence array, and ordered points define direction.

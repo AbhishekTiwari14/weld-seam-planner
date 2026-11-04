@@ -1,5 +1,6 @@
 import type { Bounds, PlanningDocument, SourceUnit, Workpiece } from '../domain/contracts.ts';
 import type { ViewTransform } from '../geometry/coordinates.ts';
+import type { SerializedBVH } from 'three-mesh-bvh';
 
 // Allocation guards, distinct from the 500k / 50 MiB tested-support target.
 export const IMPORT_SAFETY_LIMITS = { bytes: 64 * 1024 ** 2, triangles: 750_000 } as const;
@@ -31,7 +32,8 @@ export interface MeshAsset {
   view: ViewTransform;
   warnings: ImportWarning[];
   maxDisplayErrorMm: number;
-  timings: { parseMs: number; prepareMs: number };
+  acceleration: SerializedBVH | null;
+  timings: { parseMs: number; prepareMs: number; accelerationMs: number };
 }
 export interface ActiveWorkpiece { asset: MeshAsset; document: PlanningDocument }
 export type WorkerRequest = { type: 'read'; file: File } | { type: 'prepare'; unit: SourceUnit };

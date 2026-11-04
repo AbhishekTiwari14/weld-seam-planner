@@ -43,7 +43,7 @@ export function prepareAsset(parsed: ParsedStl, preview: ImportPreview, unit: So
     warnings.push({ code: 'best-effort', message: 'This model exceeds the 500,000-triangle / 50 MiB tested-support target. Responsiveness is best effort.' });
   }
   return { geometryRevision: crypto.randomUUID(), positionsMm, displayPositions, displayNormals, view,
-    maxDisplayErrorMm, warnings, timings: { parseMs: preview.parseMs, prepareMs: performance.now() - started },
+    maxDisplayErrorMm, warnings, acceleration: null, timings: { parseMs: preview.parseMs, prepareMs: performance.now() - started, accelerationMs: 0 },
     workpiece: { id: crypto.randomUUID(), frame: { ...WORKPIECE_FRAME }, boundsMm,
       source: { filename: preview.filename, byteLength: preview.byteLength, sha256: preview.sha256,
         encoding: preview.encoding, unit, inputTriangles: preview.inputTriangles,

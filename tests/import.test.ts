@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseStl } from '../src/import/parse-stl.ts';
 import { prepareAsset } from '../src/import/prepare-asset.ts';
 import { sourceToWorkpiece, viewToWorkpiece } from '../src/geometry/coordinates.ts';
@@ -33,6 +33,12 @@ describe('STL content and geometry validation', () => {
     const parsed = parseStl(bytes(asciiStl(analyticTriangles) + asciiStl([[[100, 0, 0], [100, 1, 0], [101, 0, 0]]])));
     expect(parsed.inputTriangles).toBe(3);
     expect(parsed.bounds.max).toEqual([101, 40, 5]);
+  });
+  it('accepts a non-manifold edge without claiming topological repair', () => {
+    const parsed = parseStl(bytes(asciiStl([[[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+      [[0, 0, 0], [1, 0, 0], [0, -1, 0]], [[0, 0, 0], [1, 0, 0], [0, 0, 1]]])));
+    expect(parsed.inputTriangles).toBe(3);
+    expect(parsed.omittedDegenerateTriangles).toBe(0);
   });
   it('omits exactly zero-area triangles, preserving thin usable triangles', () => {
     const parsed = parseStl(bytes(asciiStl([...analyticTriangles,
@@ -75,6 +81,11 @@ describe('authoritative coordinates and display precision', () => {
     expect(asset.displayPositions[3]! - asset.displayPositions[0]!).toBeGreaterThan(0.4);
     expect(viewToWorkpiece(Array.from(asset.displayPositions.slice(3, 6)), asset.view)[0]).toBe(1e9 + 0.125);
   });
+  it('preserves a rotated model and its negative source origin', () => {
+    const { asset } = sample(asciiStl([[[-10, -5, -20], [30, -5, -20], [-10, -5, 40]]]), 'in');
+    expect(asset.workpiece.boundsMm.min).toEqual([-254, -127, -508]);
+    expect(asset.workpiece.boundsMm.max).toEqual([762, -127, 1016]);
+  });
   it.each([1e-12, 1e12])('frames unusual scale %s without rescaling planning geometry', (scale) => {
     const { asset } = sample(asciiStl([[[0, 0, 0], [scale, scale, 0], [-scale, scale, scale]]]));
     expect(asset.workpiece.boundsMm.max).toEqual([scale, scale, scale]);
@@ -105,8 +116,8 @@ describe('atomic import lifecycle', () => {
   });
   it('preserves the old document after failure and ignores late results from cancelled/replaced workers', () => {
     const { controller, ports, file } = harness();
-    const { asset } = sample();
-    controller.start(file); ports[0]!.receive({ type: 'ready', asset });
+    const { asset, preview } = sample();
+    controller.start(file); ports[0]!.receive({ type: 'preview', preview }); controller.confirm('mm'); ports[0]!.receive({ type: 'ready', asset });
     const original = controller.store.getState().active;
     controller.start(file); ports[1]!.receive({ type: 'error', message: 'Malformed file' });
     expect(controller.store.getState().active).toBe(original);
@@ -116,5 +127,30 @@ describe('atomic import lifecycle', () => {
     controller.cancel(); ports[3]!.receive({ type: 'ready', asset: sample().asset });
     expect(controller.store.getState().active).toBe(original);
     expect(ports.every((port) => port.stopped)).toBe(true);
+  });
+  it('refuses oversized files before worker allocation and rejects unconfirmed completion', () => {
+    const { controller, ports, file } = harness();
+    const oversized = new File([], 'too-large.stl');
+    Object.defineProperty(oversized, 'size', { value: 64 * 1024 ** 2 + 1 });
+    controller.start(oversized);
+    expect(ports).toHaveLength(0);
+    expect(controller.store.getState().error).toContain('safety limit');
+    controller.start(file); ports[0]!.receive({ type: 'ready', asset: sample().asset });
+    expect(controller.store.getState().active).toBeNull();
+    expect(ports[0]!.stopped).toBe(true);
+    controller.dispose();
+  });
+  it('terminates stalled processing while allowing an engineer to leave unit review open', () => {
+    vi.useFakeTimers();
+    const { controller, ports, file } = harness();
+    try {
+      controller.start(file); vi.advanceTimersByTime(60_000);
+      expect(ports[0]!.stopped).toBe(true);
+      expect(controller.store.getState().error).toContain('60 seconds');
+      controller.start(file); ports[1]!.receive({ type: 'preview', preview: sample().preview });
+      vi.advanceTimersByTime(300_000);
+      expect(controller.store.getState().phase).toBe('confirming');
+      expect(ports[1]!.stopped).toBe(false);
+    } finally { controller.dispose(); vi.useRealTimers(); }
   });
 });

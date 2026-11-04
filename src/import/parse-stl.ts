@@ -9,7 +9,8 @@ const triple = '(\\S+)\\s+(\\S+)\\s+(\\S+)';
 const facetPattern = `facet\\s+normal\\s+${triple}\\s+outer\\s+loop\\s+vertex\\s+${triple}\\s+vertex\\s+${triple}\\s+vertex\\s+${triple}\\s+endloop\\s+endfacet`;
 
 function parseAscii(text: string): Float64Array {
-  const count = text.match(/\bfacet\s+normal\b/gi)?.length ?? 0;
+  let count = 0;
+  for (const _match of text.matchAll(/\bfacet\s+normal\b/gi)) { count++; checkCount(count); }
   if (count === 0) throw new Error('ASCII STL contains no triangles.');
   checkCount(count);
   const positions = new Float64Array(count * 9);
