@@ -7,6 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "postinstall": "patch-package --error-on-fail",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -35,6 +36,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "patch-package": "8.0.1",
     "typescript": "5.9.3",
     "vite": "8.3.5",
     "vitest": "5.1.0"

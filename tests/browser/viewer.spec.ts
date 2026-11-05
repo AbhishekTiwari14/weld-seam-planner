@@ -16,7 +16,9 @@ test.beforeEach(async ({ page }) => { await page.goto('/?inspect=1'); });
 
 test('real rendering, source units, surface hit, camera gestures and reset', async ({ page }, info) => {
   const errors: string[] = [];
+  const clockWarnings: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => { if (message.text().includes('THREE.Clock')) clockWarnings.push(message.text()); });
   await page.screenshot({ path: info.outputPath('empty.png') });
   await select(page);
   await page.getByRole('radio', { name: 'cm', exact: true }).check();
@@ -25,6 +27,15 @@ test('real rendering, source units, surface hit, camera gestures and reset', asy
   const initial = await page.evaluate(() => window.__weldDebug!.snapshot());
   expect(initial.triangles).toBe(2);
   expect(initial.geometries).toBe(1);
+  const idleFrames = await page.evaluate(async () => {
+    const frames: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      await new Promise(requestAnimationFrame);
+      frames.push(window.__weldDebug!.snapshot().renderFrame);
+    }
+    return frames;
+  });
+  expect(new Set(idleFrames.slice(-5)).size).toBe(1); // Demand rendering sleeps while idle.
   expect(JSON.parse(initial.frame).source.sha256).toBe(createHash('sha256').update(analytic).digest('hex'));
   const point = await page.evaluate(() => window.__weldDebug!.project([-20, 30, 50]));
   await page.mouse.click(point.x, point.y);
@@ -36,6 +47,7 @@ test('real rendering, source units, surface hit, camera gestures and reset', asy
   await page.mouse.move(point.x + 110, point.y + 35, { steps: 12 }); await page.mouse.up();
   const orbited = await page.evaluate(() => window.__weldDebug!.snapshot());
   expect(orbited.camera).not.toEqual(initial.camera);
+  expect(orbited.renderFrame).toBeGreaterThan(initial.renderFrame);
   expect(orbited.lastHit).toEqual(hit); // Navigation did not become a surface click.
   expect(orbited.frame).toBe(initial.frame);
   await page.mouse.down({ button: 'right' }); await page.mouse.move(point.x + 160, point.y + 60, { steps: 5 }); await page.mouse.up({ button: 'right' });
@@ -47,6 +59,7 @@ test('real rendering, source units, surface hit, camera gestures and reset', asy
   await page.getByRole('button', { name: /Fit model/ }).click();
   await page.screenshot({ path: info.outputPath('analytic-view.png') });
   expect(errors).toEqual([]);
+  expect(clockWarnings).toEqual([]);
 });
 
 test('failed and cancelled replacements preserve active model; repeated imports release geometry', async ({ page }) => {

@@ -10,7 +10,7 @@ import { fitCamera, updateClipping } from './camera.ts';
 
 interface ViewportCommands { fit: () => void; reset: () => void }
 interface DebugApi {
-  snapshot: () => { camera: number[]; geometries: number; triangles: number; frame: string; renderCalls: number; timings: MeshAsset['timings']; maxDisplayErrorMm: number; lastHit: SurfaceHit | null; pickMs: number };
+  snapshot: () => { camera: number[]; geometries: number; triangles: number; frame: string; renderCalls: number; renderFrame: number; timings: MeshAsset['timings']; maxDisplayErrorMm: number; lastHit: SurfaceHit | null; pickMs: number };
   project: (pointMm: [number, number, number]) => { x: number; y: number };
   pick: (x: number, y: number) => SurfaceHit | null;
 }
@@ -91,7 +91,7 @@ function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; comm
     canvas.addEventListener('pointercancel', cancel); canvas.addEventListener('wheel', cancel);
     window.__weldDebug = {
       snapshot: () => ({ camera: camera.position.toArray(), geometries: gl.info.memory.geometries, triangles: gl.info.render.triangles,
-        renderCalls: gl.info.render.calls, frame: JSON.stringify(asset.workpiece), timings: asset.timings, maxDisplayErrorMm: asset.maxDisplayErrorMm, lastHit, pickMs }),
+        renderCalls: gl.info.render.calls, renderFrame: gl.info.render.frame, frame: JSON.stringify(asset.workpiece), timings: asset.timings, maxDisplayErrorMm: asset.maxDisplayErrorMm, lastHit, pickMs }),
       project: (point) => {
         camera.updateMatrixWorld();
         const p = new Vector3(...workpieceToView(point, asset.view)).project(camera);

@@ -21,7 +21,9 @@ try {
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     const errors: string[] = [];
+    const clockWarnings: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => { if (message.text().includes('THREE.Clock')) clockWarnings.push(message.text()); });
     await page.goto('http://127.0.0.1:4173/?inspect=1');
     await page.getByLabel('Import STL file').setInputFiles(path.resolve('fixtures/models/analytic-plate.stl'));
     await page.getByRole('dialog').waitFor();
@@ -35,6 +37,7 @@ try {
     await mkdir('.local/evidence', { recursive: true });
     await page.screenshot({ path: '.local/evidence/production.png' });
     expect(errors).toEqual([]);
+    expect(clockWarnings).toEqual([]);
     console.log('PASS: production worker, inches-to-mm dimensions, viewport, and development-diagnostic exclusion.');
   } finally { await browser.close(); }
 } finally { server.kill(); }
