@@ -1,6 +1,6 @@
 # Milestone 2 verification
 
-Reference measurement date: 5 November 2026 (Asia/Calcutta). These are local measurements, not portable browser-speed or metrology guarantees.
+Reference measurement date: 5 November 2026 (Asia/Calcutta). These are local measurements, not portable browser-speed or metrology guarantees. This is the historical Milestone 2 report; current planning workflow checks and test totals are recorded in [Milestone 3 verification](milestone-3-verification.md).
 
 ## Reference machine and method
 

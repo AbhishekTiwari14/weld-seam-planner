@@ -2,6 +2,8 @@
 
 This document records the foundation decisions. For the implemented Milestone 2 import/runtime/viewport lifecycle, see [Import and viewport ownership](import-viewer.md); its runtime implementation supersedes the future-tense importer notes below without changing the domain/export contracts.
 
+The implemented Milestone 3 document transactions, editor state, surface-authoring and download flow are recorded in [Manual planning architecture](seam-planning.md). Historical milestone boundaries below describe the foundation at the time it was built.
+
 ## Boundaries
 
 - `src/domain`: Zod-backed contracts and immutable add/reorder/reverse operations. There is one sequence array, and ordered points define direction.
