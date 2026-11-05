@@ -1,6 +1,32 @@
 import type { Finding } from '../domain/findings.ts';
 import type { ExportWarning } from './schema.ts';
 
+function warningKey(warning: ExportWarning): string {
+  switch (warning.code) {
+    case 'SHORT_SEGMENT': return JSON.stringify([warning.code, warning.seamId, warning.startPointId, warning.endPointId]);
+    case 'TURN_ANGLE_HIGH': return JSON.stringify([warning.code, warning.seamId, warning.pointId]);
+    case 'DEGENERATE_TRIANGLES_OMITTED': return warning.code;
+  }
+}
+
+/** Compare derived measurements with a floating-point evaluation allowance,
+ * not a manufacturing tolerance. Warning membership and references stay exact. */
+export function warningsMatch(actual: readonly ExportWarning[], expected: readonly ExportWarning[]): boolean {
+  if (actual.length !== expected.length) return false;
+  const remaining = new Map(expected.map((warning) => [warningKey(warning), warning]));
+  const close = (a: number, b: number) => Math.abs(a - b) <= 32 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
+  for (const warning of actual) {
+    const key = warningKey(warning);
+    const other = remaining.get(key);
+    if (!other) return false; // Missing, changed reference, or duplicate identity.
+    remaining.delete(key);
+    if (warning.code === 'SHORT_SEGMENT' && other.code === 'SHORT_SEGMENT' && !close(warning.valueMm, other.valueMm)) return false;
+    if (warning.code === 'TURN_ANGLE_HIGH' && other.code === 'TURN_ANGLE_HIGH' && !close(warning.valueDeg, other.valueDeg)) return false;
+    if (warning.code === 'DEGENERATE_TRIANGLES_OMITTED' && other.code === 'DEGENERATE_TRIANGLES_OMITTED' && warning.count !== other.count) return false;
+  }
+  return remaining.size === 0;
+}
+
 export function exportWarnings(findings: readonly Finding[]): ExportWarning[] {
   return findings.filter((finding) => finding.severity === 'warning').map((finding): ExportWarning => {
     const { target, measurement } = finding;
