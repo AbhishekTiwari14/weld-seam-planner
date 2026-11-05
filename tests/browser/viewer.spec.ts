@@ -8,9 +8,25 @@ async function select(page: Page, buffer = analytic, name = 'analytic.stl') {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 async function confirm(page: Page) {
+  const filename = await page.getByRole('dialog').locator('.file-summary strong').innerText();
+  const previousRevision = await page.evaluate(() => window.__weldDebug?.snapshot().geometryRevision ?? null);
   await page.getByRole('button', { name: /Confirm & (open|replace) model/ }).click();
+  await waitForRenderedWorkpiece(page, filename, previousRevision);
+}
+async function waitForRenderedWorkpiece(page: Page, filename: string, previousRevision: string | null) {
   await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__weldDebug?.snapshot().triangles ?? 0)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate((previous) => {
+    const snapshot = window.__weldDebug?.snapshot();
+    if (!snapshot) return null;
+    return {
+      filename: JSON.parse(snapshot.frame).source.filename,
+      newRevision: snapshot.geometryRevision !== previous,
+      rendered: snapshot.renderedGeometryRevision === snapshot.geometryRevision,
+      geometries: snapshot.geometries,
+      trianglesDrawn: snapshot.triangles > 0,
+    };
+  }, previousRevision), { message: `Wait for ${filename}'s new revision to draw with exactly one GPU geometry` })
+    .toEqual({ filename, newRevision: true, rendered: true, geometries: 1, trianglesDrawn: true });
 }
 test.beforeEach(async ({ page }) => { await page.goto('/?inspect=1'); });
 
@@ -71,10 +87,59 @@ test('failed and cancelled replacements preserve active model; repeated imports 
   await select(page); await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect(await page.evaluate(() => window.__weldDebug!.snapshot().frame)).toBe(frame);
   for (let i = 0; i < 4; i++) {
-    await select(page, Buffer.from(binaryStl(1, 'solid binary header')), `replacement-${i}.data`);
+    // The last two activations deliberately share both filename and bytes.
+    await select(page, Buffer.from(binaryStl(1, 'solid binary header')), i < 2 ? `replacement-${i}.data` : 'same-source.data');
     await confirm(page);
     expect(await page.evaluate(() => window.__weldDebug!.snapshot().geometries)).toBe(1);
   }
+});
+
+test('replacement readiness waits for the new geometry to render', async ({ page }) => {
+  // Hold only animation-frame callbacks; imports, React commits and real WebGL stay intact.
+  const frames = await page.evaluateHandle(() => {
+    const request = window.requestAnimationFrame.bind(window);
+    const cancel = window.cancelAnimationFrame.bind(window);
+    const queued = new Map<number, FrameRequestCallback>();
+    let held = false;
+    window.requestAnimationFrame = (callback) => {
+      const id = request((time) => { if (held) queued.set(id, callback); else callback(time); });
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => { queued.delete(id); cancel(id); };
+    return {
+      hold: () => { held = true; },
+      release: () => {
+        held = false;
+        window.requestAnimationFrame = request;
+        window.cancelAnimationFrame = cancel;
+        for (const callback of queued.values()) request(callback);
+        queued.clear();
+      },
+    };
+  });
+  try {
+    await select(page); await confirm(page);
+    const before = await page.evaluate(() => window.__weldDebug!.snapshot());
+    await select(page, Buffer.from(binaryStl(1)), 'held-replacement.stl');
+    await frames.evaluate((gate) => gate.hold());
+    await page.getByRole('button', { name: 'Confirm & replace model' }).click();
+    await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => JSON.parse(window.__weldDebug!.snapshot().frame).source.filename))
+      .toBe('held-replacement.stl');
+    const pending = await page.evaluate(() => window.__weldDebug!.snapshot());
+    expect(JSON.parse(pending.frame).source.filename).toBe('held-replacement.stl');
+    expect(pending.triangles).toBe(before.triangles);
+    expect(pending.renderFrame).toBe(before.renderFrame);
+    expect(pending.geometryRevision).not.toBe(before.geometryRevision);
+    expect(pending.renderedGeometryRevision).toBeNull();
+    expect(pending.geometries).toBe(0); // Old geometry disposed; new draw is deliberately held.
+    await frames.evaluate((gate) => gate.release());
+    await waitForRenderedWorkpiece(page, 'held-replacement.stl', before.geometryRevision);
+    const rendered = await page.evaluate(() => window.__weldDebug!.snapshot());
+    expect(rendered.renderFrame).toBeGreaterThan(before.renderFrame);
+    expect(rendered.triangles).toBe(1);
+    expect(rendered.geometries).toBe(1);
+  } finally { await frames.evaluate((gate) => gate.release()); await frames.dispose(); }
 });
 
 test('large-offset source precision survives real worker, GPU display and raycasting', async ({ page }) => {

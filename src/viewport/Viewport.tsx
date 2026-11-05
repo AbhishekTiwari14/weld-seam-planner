@@ -10,7 +10,7 @@ import { fitCamera, updateClipping } from './camera.ts';
 
 interface ViewportCommands { fit: () => void; reset: () => void }
 interface DebugApi {
-  snapshot: () => { camera: number[]; geometries: number; triangles: number; frame: string; renderCalls: number; renderFrame: number; timings: MeshAsset['timings']; maxDisplayErrorMm: number; lastHit: SurfaceHit | null; pickMs: number };
+  snapshot: () => { camera: number[]; geometries: number; triangles: number; frame: string; geometryRevision: string; renderedGeometryRevision: string | null; renderCalls: number; renderFrame: number; timings: MeshAsset['timings']; maxDisplayErrorMm: number; lastHit: SurfaceHit | null; pickMs: number };
   project: (pointMm: [number, number, number]) => { x: number; y: number };
   pick: (x: number, y: number) => SurfaceHit | null;
 }
@@ -28,6 +28,7 @@ function Orientation({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) {
 function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; commands: RefObject<ViewportCommands | null>; orientation: RefObject<SVGSVGElement | null>; onHit: (hit: SurfaceHit | null) => void }) {
   const { camera, gl, scene, invalidate, size } = useThree();
   const mesh = useRef<Mesh | null>(null);
+  const renderedGeometryRevision = useRef<string | null>(null);
   useEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
     const orbit = new OrbitControls(camera, gl.domElement);
@@ -64,9 +65,13 @@ function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; comm
     const material = new MeshStandardMaterial({ color: '#c5c5bd', roughness: 0.68, metalness: 0.15, side: DoubleSide });
     const object = new Mesh(geometry, material);
     if (asset.acceleration) object.raycast = acceleratedRaycast;
+    renderedGeometryRevision.current = null;
+    // Renderer statistics can still describe the previous frame after replacement.
+    // Mark this revision only after its own draw; inspection adds no render scheduling.
+    if (inspect) object.onAfterRender = () => { renderedGeometryRevision.current = asset.geometryRevision; };
     mesh.current = object;
     scene.add(object); invalidate();
-    return () => { scene.remove(object); mesh.current = null; delete geometry.boundsTree; geometry.dispose(); material.dispose(); invalidate(); };
+    return () => { scene.remove(object); mesh.current = null; renderedGeometryRevision.current = null; delete geometry.boundsTree; geometry.dispose(); material.dispose(); invalidate(); };
   }, [asset, scene, invalidate]);
   useEffect(() => { commands.current?.reset(); }, [asset, commands]);
   useEffect(() => { commands.current?.fit(); }, [size.width, size.height, commands]);
@@ -91,6 +96,7 @@ function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; comm
     canvas.addEventListener('pointercancel', cancel); canvas.addEventListener('wheel', cancel);
     window.__weldDebug = {
       snapshot: () => ({ camera: camera.position.toArray(), geometries: gl.info.memory.geometries, triangles: gl.info.render.triangles,
+        geometryRevision: asset.geometryRevision, renderedGeometryRevision: renderedGeometryRevision.current,
         renderCalls: gl.info.render.calls, renderFrame: gl.info.render.frame, frame: JSON.stringify(asset.workpiece), timings: asset.timings, maxDisplayErrorMm: asset.maxDisplayErrorMm, lastHit, pickMs }),
       project: (point) => {
         camera.updateMatrixWorld();
