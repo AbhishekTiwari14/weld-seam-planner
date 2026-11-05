@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
 import { chromium, expect } from '@playwright/test';
 import path from 'node:path';
+import { configureSeam, createSeam, downloadJob, visiblePointCoordinates } from '../tests/helpers/planning-browser.ts';
 
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], { windowsHide: true, stdio: 'pipe' });
 let serverOutput = '';
@@ -34,10 +35,27 @@ try {
     await expect(page.locator('.dimensions')).toContainText('1,016');
     await page.getByRole('button', { name: /Fit model/ }).click();
     expect(await page.evaluate(() => window.__weldDebug)).toBeUndefined();
+    await createSeam(page, [[-5, -10, 5], [20, -10, 5]], 'Production straight');
+    await configureSeam(page, '5', '80', '20');
+    const points = await visiblePointCoordinates(page);
+    await createSeam(page, [[-5, 15, 5], [15, 15, 5], [15, 30, 5]], 'Production polyline');
+    await configureSeam(page, '10', '110', '24');
+    await page.getByRole('button', { name: 'Move Production polyline earlier', exact: true }).click();
     await mkdir('.local/evidence', { recursive: true });
     await page.screenshot({ path: '.local/evidence/production.png' });
+    await page.getByRole('button', { name: 'Review & Export', exact: true }).click();
+    const { job, filename } = await downloadJob(page);
+    expect(filename).toBe('analytic-plate.weld-job.v1.json');
+    expect(job.workpiece.source.unit).toBe('in');
+    expect(job.seams).toHaveLength(2);
+    expect(job.sequence.map((id) => job.seams.find((seam) => seam.id === id)!.name)).toEqual(['Production polyline', 'Production straight']);
+    const straight = job.seams.find((seam) => seam.name === 'Production straight')!;
+    expect(straight.geometry.points.map((point) => point.positionMm)).toEqual(points);
+    expect(straight.geometry.points[0]!.positionMm[0]).toBeCloseTo(-5 * 25.4, 2);
+    expect(straight.geometry.points[0]!.positionMm[2]).toBeCloseTo(5 * 25.4, 8);
+    await page.screenshot({ path: '.local/evidence/production-review.png' });
     expect(errors).toEqual([]);
     expect(clockWarnings).toEqual([]);
-    console.log('PASS: production worker, inches-to-mm dimensions, viewport, and development-diagnostic exclusion.');
+    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring, independent parameters, sequence, review, validated JSON download, and development-diagnostic exclusion.');
   } finally { await browser.close(); }
 } finally { server.kill(); }
