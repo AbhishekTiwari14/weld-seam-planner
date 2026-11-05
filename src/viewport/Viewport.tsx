@@ -7,6 +7,7 @@ import type { MeshAsset } from '../import/types.ts';
 import { workpieceToView } from '../geometry/coordinates.ts';
 import { ClickGuard, pickSurface, pointerToNdc, type SurfaceHit } from './picking.ts';
 import { fitCamera, updateClipping } from './camera.ts';
+import { SeamInteraction, type ViewportPlanning } from './SeamInteraction.tsx';
 
 interface ViewportCommands { fit: () => void; reset: () => void }
 interface DebugApi {
@@ -25,7 +26,7 @@ function Orientation({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) {
   </svg>;
 }
 
-function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; commands: RefObject<ViewportCommands | null>; orientation: RefObject<SVGSVGElement | null>; onHit: (hit: SurfaceHit | null) => void }) {
+function Scene({ asset, commands, orientation, onHit, planning }: { asset: MeshAsset; commands: RefObject<ViewportCommands | null>; orientation: RefObject<SVGSVGElement | null>; onHit: (hit: SurfaceHit | null) => void; planning: ViewportPlanning }) {
   const { camera, gl, scene, invalidate, size } = useThree();
   const mesh = useRef<Mesh | null>(null);
   const renderedGeometryRevision = useRef<string | null>(null);
@@ -111,7 +112,7 @@ function Scene({ asset, commands, orientation, onHit }: { asset: MeshAsset; comm
       canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('wheel', cancel);
     };
   }, [asset, camera, gl, onHit]);
-  return <><ambientLight intensity={0.8} /><hemisphereLight args={['#f6f6ee', '#344425', 2]} />
+  return <><SeamInteraction asset={asset} mesh={mesh} planning={planning} /><ambientLight intensity={0.8} /><hemisphereLight args={['#f6f6ee', '#344425', 2]} />
     <directionalLight position={[3, -4, 5]} intensity={3} /><directionalLight position={[-3, 1, -2]} intensity={1.5} /></>;
 }
 
@@ -121,23 +122,35 @@ class ViewportBoundary extends Component<{ children: ReactNode }, { failed: bool
   render() { return this.state.failed ? <div className="viewport-fallback" role="alert"><h2>3D rendering is unavailable</h2><p>Enable hardware acceleration or try a WebGL 2 browser. Reload to retry.</p></div> : this.props.children; }
 }
 
-export function Viewport({ asset }: { asset: MeshAsset }) {
+export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: {
+  asset: MeshAsset; planning: ViewportPlanning; onFinish: () => void; onCancel: () => void; onRemoveLast: () => void;
+}) {
   const commands = useRef<ViewportCommands | null>(null);
   const orientation = useRef<SVGSVGElement | null>(null);
   const [hit, setHit] = useState<SurfaceHit | null>(null);
   const [contextLost, setContextLost] = useState(false);
   useEffect(() => setHit(null), [asset]);
-  return <section className="viewport" aria-label="3D workpiece viewport" tabIndex={0}
-    onKeyDown={(e) => { if (e.key.toLowerCase() === 'f') commands.current?.fit(); if (e.key === 'Home') { e.preventDefault(); commands.current?.reset(); } }}>
+  return <section className={`viewport${planning.draft !== null ? ' is-creating' : ''}`} aria-label="3D workpiece viewport" tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.target !== e.currentTarget) return;
+      if (planning.draft !== null && ['Enter', 'Escape', 'Backspace'].includes(e.key)) {
+        e.preventDefault(); if (e.repeat) return;
+        if (e.key === 'Enter') onFinish(); else if (e.key === 'Escape') onCancel(); else onRemoveLast();
+      }
+      if (e.key.toLowerCase() === 'f') commands.current?.fit(); if (e.key === 'Home') { e.preventDefault(); commands.current?.reset(); }
+    }}>
     <div className="viewport-tools"><span className="viewport-caption">WORKPIECE / SOLID</span><div><button onClick={() => commands.current?.fit()} title="Fit model (F)">Fit model <kbd>F</kbd></button><button onClick={() => commands.current?.reset()} title="Reset camera (Home)">Reset view</button></div></div>
     <ViewportBoundary><Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 40, position: [1.2, -1.6, 1.1], up: [0, 0, 1], near: 0.0001, far: 5000 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       fallback={<div className="viewport-fallback" role="alert">WebGL 2 is unavailable. Enable hardware acceleration or use a supported desktop browser.</div>}
       onCreated={({ gl }) => { gl.setClearColor('#141e00'); gl.domElement.setAttribute('aria-label', 'Interactive 3D model'); gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setContextLost(true); }); }}>
-      <Scene asset={asset} commands={commands} orientation={orientation} onHit={setHit} />
+      <Scene asset={asset} commands={commands} orientation={orientation} onHit={setHit} planning={planning} />
     </Canvas></ViewportBoundary>
     {contextLost && <div className="viewport-fallback" role="alert"><h2>Graphics context lost</h2><p>The browser ran out of graphics resources. Reload and try a smaller model.</p></div>}
     <Orientation svgRef={orientation} />
+    <div className="viewport-mode" role="status">{planning.draft !== null ? `Creating seam · ${planning.draft.length} points · Enter to finish / Esc to cancel` :
+      planning.selectedId ? `Selected: ${planning.seams.find((seam) => seam.id === planning.selectedId)?.name ?? 'Seam'} · white start → orange end` : 'Navigate the model · Add seam to place surface points'}</div>
+    {!!planning.seams.length && <div className="overlay-note">Path overlays remain visible through the model. Segments are straight chords.</div>}
     <div className="viewport-guidance">Drag to orbit <span>·</span> Right-drag to pan <span>·</span> Scroll to zoom</div>
     {inspect && <output className="pick-diagnostic" data-testid="pick-result">{hit ? `Hit mm: ${hit.pointMm.map((v) => v.toPrecision(9)).join(', ')} · triangle ${hit.triangleIndex}` : 'Development inspection: click a surface to verify workpiece coordinates'}</output>}
   </section>;

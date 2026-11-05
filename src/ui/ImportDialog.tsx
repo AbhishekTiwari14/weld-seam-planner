@@ -24,7 +24,7 @@ export function ImportDialog({ preview, replacing, onConfirm, onCancel }: {
     <p className="small">The source origin and axes are preserved. Camera centering changes only the view.</p>
     {preview.warnings.map((w) => <p className="notice" key={w.code}>{w.message}</p>)}
     {!valid && <p role="alert">These dimensions exceed safe numeric arithmetic. Choose the correct source unit or revise the source model.</p>}
-    {replacing && <p className="small">Confirming replaces the current workpiece. Cancelling keeps it unchanged.</p>}
+    {replacing && <p className="small">Confirming replaces the current workpiece and clears its weld plan and draft. Cancelling keeps them unchanged.</p>}
     <div className="dialog-actions"><button onClick={onCancel}>Cancel</button><button className="primary" disabled={!valid} onClick={() => onConfirm(unit)}>{replacing ? 'Confirm & replace model' : 'Confirm & open model'}</button></div>
   </dialog>;
 }

@@ -1,24 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { createBrowserImportPort, createImportController } from '../import/store.ts';
-import { ImportDialog, formatDimension } from './ImportDialog.tsx';
-import type { MeshAsset } from '../import/types.ts';
-
-const Viewport = lazy(() => import('../viewport/Viewport.tsx').then((module) => ({ default: module.Viewport })));
-function WorkpiecePanel({ asset, onReplace }: { asset: MeshAsset; onReplace: () => void }) {
-  const { workpiece } = asset;
-  const source = workpiece.source;
-  return <aside className="workpiece-panel"><div className="panel-heading"><span className="eyebrow">01 / WORKPIECE</span><span className="ready-dot">Ready</span></div>
-    <h2 title={source.filename}>{source.filename}</h2><p className="small muted">{source.encoding.toUpperCase()} STL · {(source.byteLength / 1024 ** 2).toFixed(2)} MiB</p>
-    <div className="panel-section"><h3>Physical dimensions</h3><p className="small muted">Bounding extents in millimetres</p>
-      <dl className="dimensions">{workpiece.boundsMm.max.map((value, axis) => <div key={axis}><dt>{['X', 'Y', 'Z'][axis]}</dt><dd>{formatDimension(value - workpiece.boundsMm.min[axis]!)} <span>mm</span></dd></div>)}</dl></div>
-    <div className="panel-section"><h3>Model information</h3><dl className="metadata"><div><dt>Source units</dt><dd>{source.unit}</dd></div><div><dt>Displayed triangles</dt><dd>{(source.inputTriangles - source.omittedDegenerateTriangles).toLocaleString()}</dd></div><div><dt>Planning frame</dt><dd>Source XYZ</dd></div><div><dt>Planning units</dt><dd>mm</dd></div></dl></div>
-    <div className="coordinate-note"><span className="coordinate-mark">↗</span><p>Source origin preserved.<br /><span>Centered for viewing only.</span></p></div>
-    {asset.warnings.length > 0 && <div className="panel-section"><h3>Import observations</h3><ul className="warnings">{asset.warnings.map((w) => <li key={w.code}>{w.message}</li>)}</ul></div>}
-    <details className="provenance"><summary>Source provenance & precision</summary><p>SHA-256</p><code>{source.sha256}</code><p>Maximum display rounding per coordinate: {formatDimension(asset.maxDisplayErrorMm)} mm. This is a display measurement, not manufacturing accuracy.</p><p>Open surfaces and disconnected shells are allowed. Topology and weld suitability have not been certified.</p></details>
-    <button className="replace-button" onClick={onReplace}>Replace model <span>↗</span></button>
-  </aside>;
-}
+import { ImportDialog } from './ImportDialog.tsx';
+import { PlanningWorkspace } from './PlanningWorkspace.tsx';
 
 export function Workbench() {
   const [controller] = useState(() => createImportController(createBrowserImportPort));
@@ -34,7 +18,7 @@ export function Workbench() {
     <header className="topbar"><div className="brand-lockup"><img src="/brand/armatrix-horizontal-logo-light-sand-rgb.svg" alt="Armatrix" /><span className="brand-divider" /><div><strong>Weld Seam Planner</strong><span>Engineering workbench</span></div></div><div className="topbar-actions"><span className="local-badge">Local workspace</span><button className="primary" onClick={choose}>＋ Import STL</button></div></header>
     <input ref={input} className="file-input" type="file" accept=".stl,model/stl,application/sla" aria-label="Import STL file" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) controller.start(file); }} />
     <main className={`workspace ${state.active ? 'has-model' : ''}`}>
-      {state.active ? <><WorkpiecePanel asset={state.active.asset} onReplace={choose} /><Suspense fallback={<div className="viewport">Starting 3D viewport…</div>}><Viewport asset={state.active.asset} /></Suspense></> :
+      {state.active ? <PlanningWorkspace active={state.active} controller={controller} onReplace={choose} /> :
         <section className="empty-workspace"><div className="empty-topline"><span className="eyebrow">WORKPIECE INSPECTION</span><span>01 — IMPORT</span></div><div className="empty-content"><div className="technical-mark" aria-hidden="true"><svg viewBox="0 0 120 120"><path d="M60 10 104 35 104 85 60 110 16 85 16 35Z M16 35 60 61 104 35 M60 61V110" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M60 10V61" stroke="currentColor" strokeDasharray="4 5" /><circle cx="60" cy="61" r="4" fill="var(--brand-bright-discovery)" /></svg></div><span className="eyebrow">FROM GEOMETRY TO ENGINEERING</span><h1>Start with the workpiece.</h1><p>Import an STL, confirm its physical scale,<br />and inspect the geometry in your source frame.</p><button className="primary large" onClick={choose}>Import STL model <span>↗</span></button><span className="drop-hint">or drop one file anywhere in the workspace</span></div><div className="empty-specs"><div><strong>ASCII & binary</strong><span>Content-validated STL</span></div><div><strong>Source coordinates</strong><span>Origin and axes preserved</span></div><div><strong>Private by design</strong><span>Model processing stays in your browser</span></div></div></section>}
     </main>
     {(state.error || dropError) && <div className="error-banner" role="alert"><div><strong>Could not import this model</strong><p>{dropError ?? state.error}{state.active && ' The current workpiece is unchanged.'}</p></div><button onClick={() => { controller.dismissError(); setDropError(null); }} aria-label="Dismiss import error">×</button></div>}
