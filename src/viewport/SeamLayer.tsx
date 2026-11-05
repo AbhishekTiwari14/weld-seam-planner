@@ -21,10 +21,15 @@ export function SeamLayer({ seams, selectedId, draft, preview, view, selectable 
       const geometry = new LineGeometry().setPositions(points.flat());
       const material = new LineMaterial({ color, linewidth: width, depthTest: false, depthWrite: false, toneMapped: false });
       material.resolution.set(size.width, size.height);
+      // A dark casing keeps both light and orange paths legible on shaded faces.
+      // Share the geometry; only the material/draw is additional.
+      const outlineMaterial = new LineMaterial({ color: '#030500', linewidth: width + 2, depthTest: false, depthWrite: false, toneMapped: false });
+      outlineMaterial.resolution.set(size.width, size.height);
+      const outline = new Line2(geometry, outlineMaterial); outline.renderOrder = 4;
       const object = new Line2(geometry, material);
       object.renderOrder = 5;
       if (seamId) { object.userData.seamId = seamId; lines.push(object); }
-      group.add(object); resources.push(geometry, material);
+      group.add(outline, object); resources.push(geometry, material, outlineMaterial);
     };
     const markers = (points: number[][], color: string, pixels: number) => {
       if (!points.length) return;
