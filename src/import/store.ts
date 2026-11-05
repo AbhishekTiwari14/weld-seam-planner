@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla';
-import { PROCESS_PROFILE, type SourceUnit } from '../domain/contracts.ts';
+import { PROCESS_PROFILE, type SourceUnit, type PlanningDocument } from '../domain/contracts.ts';
 import { requireValidPlanning } from '../validation/planning.ts';
 import { IMPORT_SAFETY_LIMITS, type ActiveWorkpiece, type ImportPreview, type WorkerRequest, type WorkerResponse } from './types.ts';
 
@@ -33,6 +33,17 @@ export function createImportController(createPort: () => ImportPort) {
   }
   return {
     store,
+    editPlan(workpieceId: string, operation: (document: PlanningDocument) => PlanningDocument) {
+      const active = store.getState().active;
+      if (!active || active.asset.workpiece.id !== workpieceId) throw new Error('The workpiece changed. Start this edit again.');
+      const document = requireValidPlanning(operation(requireValidPlanning(active.document)));
+      if (document.jobId !== active.document.jobId || JSON.stringify(document.content.workpiece) !== JSON.stringify(active.document.content.workpiece)) {
+        throw new Error('Plan edits cannot replace the workpiece or job identity.');
+      }
+      if (JSON.stringify(document) === JSON.stringify(active.document)) return;
+      if (document.revision !== active.document.revision + 1) throw new Error('Plan edits must increment revision exactly once.');
+      store.setState({ active: { asset: active.asset, document } });
+    },
     start(file: File) {
       stop();
       store.setState({ preview: null, phase: 'processing', error: null, status: 'Starting import…' });
