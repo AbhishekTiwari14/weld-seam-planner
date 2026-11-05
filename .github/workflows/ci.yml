@@ -1,4 +1,4 @@
-name: Foundation checks
+name: Engineering checks
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -23,6 +23,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: npm run test:production
       - name: Check generated contract artifacts
         run: |
           npm run schema:generate

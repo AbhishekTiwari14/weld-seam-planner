@@ -7,10 +7,13 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "postinstall": "patch-package --error-on-fail",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "test:production": "node scripts/check-production.ts",
     "schema:generate": "node scripts/generate-contract.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
@@ -20,10 +23,12 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "three": "0.187.0",
+    "three-mesh-bvh": "0.9.18",
     "zod": "4.6.7",
     "zustand": "5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -31,6 +36,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "patch-package": "8.0.1",
     "typescript": "5.9.3",
     "vite": "8.3.5",
     "vitest": "5.1.0"

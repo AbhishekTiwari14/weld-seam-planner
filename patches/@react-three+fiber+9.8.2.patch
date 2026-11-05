@@ -1,0 +1,150 @@
+diff --git a/node_modules/@react-three/fiber/dist/events-0dab3c53.cjs.dev.js b/node_modules/@react-three/fiber/dist/events-0dab3c53.cjs.dev.js
+index 705fbd5..ac60158 100644
+--- a/node_modules/@react-three/fiber/dist/events-0dab3c53.cjs.dev.js
++++ b/node_modules/@react-three/fiber/dist/events-0dab3c53.cjs.dev.js
+@@ -1229,7 +1229,44 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE__namespace.Clock(),
++      clock: new (class {
++        // R3F 9 compatibility: Timer computes deltas; writable Clock fields support advance().
++        // No DOM connection: preserve demand-loop timing without adding listeners or a frame loop.
++        timer = new THREE__namespace.Timer();
++        autoStart = true;
++        startTime = 0;
++        oldTime = 0;
++        elapsedTime = 0;
++        running = false;
++        start() {
++          const time = performance.now();
++          this.timer.update(time);
++          this.startTime = this.oldTime = time;
++          this.elapsedTime = 0;
++          this.running = true;
++        }
++        stop() {
++          this.getElapsedTime();
++          this.running = false;
++          this.autoStart = false;
++        }
++        getElapsedTime() {
++          this.getDelta();
++          return this.elapsedTime;
++        }
++        getDelta() {
++          if (this.autoStart && !this.running) {
++            this.start();
++            return 0;
++          }
++          if (!this.running) return 0;
++          this.oldTime = performance.now();
++          this.timer.update(this.oldTime);
++          const delta = this.timer.getDelta();
++          this.elapsedTime += delta;
++          return delta;
++        }
++      })(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
+diff --git a/node_modules/@react-three/fiber/dist/events-98e95d43.cjs.prod.js b/node_modules/@react-three/fiber/dist/events-98e95d43.cjs.prod.js
+index c265e9e..624f88c 100644
+--- a/node_modules/@react-three/fiber/dist/events-98e95d43.cjs.prod.js
++++ b/node_modules/@react-three/fiber/dist/events-98e95d43.cjs.prod.js
+@@ -1229,7 +1229,44 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE__namespace.Clock(),
++      clock: new (class {
++        // R3F 9 compatibility: Timer computes deltas; writable Clock fields support advance().
++        // No DOM connection: preserve demand-loop timing without adding listeners or a frame loop.
++        timer = new THREE__namespace.Timer();
++        autoStart = true;
++        startTime = 0;
++        oldTime = 0;
++        elapsedTime = 0;
++        running = false;
++        start() {
++          const time = performance.now();
++          this.timer.update(time);
++          this.startTime = this.oldTime = time;
++          this.elapsedTime = 0;
++          this.running = true;
++        }
++        stop() {
++          this.getElapsedTime();
++          this.running = false;
++          this.autoStart = false;
++        }
++        getElapsedTime() {
++          this.getDelta();
++          return this.elapsedTime;
++        }
++        getDelta() {
++          if (this.autoStart && !this.running) {
++            this.start();
++            return 0;
++          }
++          if (!this.running) return 0;
++          this.oldTime = performance.now();
++          this.timer.update(this.oldTime);
++          const delta = this.timer.getDelta();
++          this.elapsedTime += delta;
++          return delta;
++        }
++      })(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
+diff --git a/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js b/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
+index 6c801a2..1674d5f 100644
+--- a/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
++++ b/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
+@@ -1204,7 +1204,44 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE.Clock(),
++      clock: new (class {
++        // R3F 9 compatibility: Timer computes deltas; writable Clock fields support advance().
++        // No DOM connection: preserve demand-loop timing without adding listeners or a frame loop.
++        timer = new THREE.Timer();
++        autoStart = true;
++        startTime = 0;
++        oldTime = 0;
++        elapsedTime = 0;
++        running = false;
++        start() {
++          const time = performance.now();
++          this.timer.update(time);
++          this.startTime = this.oldTime = time;
++          this.elapsedTime = 0;
++          this.running = true;
++        }
++        stop() {
++          this.getElapsedTime();
++          this.running = false;
++          this.autoStart = false;
++        }
++        getElapsedTime() {
++          this.getDelta();
++          return this.elapsedTime;
++        }
++        getDelta() {
++          if (this.autoStart && !this.running) {
++            this.start();
++            return 0;
++          }
++          if (!this.running) return 0;
++          this.oldTime = performance.now();
++          this.timer.update(this.oldTime);
++          const delta = this.timer.getDelta();
++          this.elapsedTime += delta;
++          return delta;
++        }
++      })(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
