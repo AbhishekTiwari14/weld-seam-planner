@@ -1,6 +1,6 @@
 # Armatrix Weld Seam Planner
 
-Browser-based engineering prototype. Milestone 3 completes manual weld planning: import STL, confirm units, pick surface points, configure each seam, arrange execution order, review and download a validated weld-job JSON file.
+Browser-based engineering prototype. Milestone 4 adds precise point replacement/insertion/removal, direction reversal, bounded undo/redo and geometry-linked diagnostics to the complete manual weld-planning workflow.
 
 ## Local development
 
@@ -31,6 +31,8 @@ This is a weld **plan**, not an executable robot trajectory. Source units and wo
 
 ## Review materials
 
+- [Precision seam editing, history rules and manual acceptance](docs/seam-editor-history.md)
+- [Milestone 4 verification and measured limits](docs/milestone-4-verification.md)
 - [Manual planning architecture and exact acceptance procedure](docs/seam-planning.md)
 - [Milestone 3 verification and remaining limits](docs/milestone-3-verification.md)
 - [Architecture and numerical policy](docs/architecture.md)
@@ -52,8 +54,12 @@ Import an STL, confirm mm/cm/m/in against the dimension preview, then orbit, pan
 
 Choose **Add seam**, click at least two surface points, then **Finish seam** (Enter). Escape cancels and Backspace removes the last draft point while the viewport is focused. Select a seam to rename it, inspect ordered points and configure travel speed (mm/s), current (A) and voltage (V); **Apply parameters** commits all three. Missing targets block export. Move seams earlier/later, then **Review & Export** to download the validated plan. Unfinished drafts are excluded explicitly.
 
-Lines are straight chords between clicked surface points, not surface-following robot trajectories. Geometry warnings and nominal arc-on time support inspection, not process certification. Plans live in memory; refreshing loses the session. Point replacement/insertion, undo/redo, reversal UI and richer diagnostics are Milestone 4; candidate detection, persistence and deployment are later. The controller-neutral JSON contract is unchanged. CI checks source, tests, build, browser acceptance and schema drift; this work does not push or deploy a branch.
+Select a point or segment in **Ordered points & geometry** to replace, insert or remove it. Surface edits show a candidate before **Apply point**; Escape cancels. Reverse direction changes traversal. Undo/Redo restore committed content under increasing revisions, retaining up to 50 states within a 16 MiB snapshot budget. Native text undo remains available inside input fields. Clicking a warning highlights its point/segment without changing geometry.
+
+Lines are straight chords between clicked surface points, not surface-following robot trajectories. Geometry warnings and nominal arc-on time support inspection, not process certification. Plans and history live in memory; refreshing loses the session. Successful model replacement clears history. Candidate detection, persistence and deployment remain later work. The controller-neutral JSON contract is unchanged. CI checks source, tests, build, browser acceptance and schema drift; this work does not push or deploy a branch.
 
 ## Reproduce capacity and unfamiliar-file checks
 
 With the local dev server running, use `node scripts/fetch-test-models.ts`, `node scripts/generate-profile-models.ts`, then `node scripts/profile-viewer.ts`. Holdouts and generated large meshes stay in ignored `.local/models`; screenshots and raw timing reports go to `.local/evidence`. Downloads require internet, but the application itself does not. `node --expose-gc scripts/profile-import.ts` measures Node import allocation snapshots; `node scripts/profile-upstream.ts` reproduces the unaccelerated baseline. The fetched model URLs and hashes are recorded locally; external artwork is not redistributed.
+
+`node --expose-gc scripts/profile-history.ts` measures history storage and pure edit/restore timings on an authored 100-seam, 10,000-point document. It prints results without generating files; these Node observations are separate from browser/GPU measurements.
