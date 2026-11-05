@@ -3,7 +3,7 @@ import { PlanValidationError } from '../domain/findings.ts';
 import { requireValidPlanning, validatePlanning } from '../validation/planning.ts';
 import { NOT_ASSESSED, RULESET_VERSION, SCHEMA_VERSION, weldJobSchema } from './schema.ts';
 import type { WeldJob } from './schema.ts';
-import { exportWarnings } from './warnings.ts';
+import { exportWarnings, warningsMatch } from './warnings.ts';
 
 /** Always recompute review from the committed document. No cached UI analysis is accepted. */
 export function createWeldJob(input: unknown): WeldJob {
@@ -36,10 +36,10 @@ export function validateWeldJob(input: unknown): WeldJob {
     seamsById: Object.fromEntries(job.seams.map((seam) => [seam.id, seam])), sequence: job.sequence,
   } }, 'export');
   const expected = createWeldJob(document);
-  // Zod establishes property order; sorting makes warning order non-semantic.
-  const actualWarnings = job.review.warnings.map((warning) => JSON.stringify(warning)).sort();
-  const expectedWarnings = expected.review.warnings.map((warning) => JSON.stringify(warning)).sort();
-  if (JSON.stringify(actualWarnings) !== JSON.stringify(expectedWarnings)) {
+  // Chrome and Node may differ in the last bits of hypot/atan2 evaluation.
+  // Identity, cardinality and integer evidence remain exact; only derived
+  // floating-point measurements receive the documented roundoff allowance.
+  if (!warningsMatch(job.review.warnings, expected.review.warnings)) {
     throw new PlanValidationError([{ code: 'REVIEW_MISMATCH', severity: 'error',
       message: 'Review warnings do not match the current geometry and ruleset.',
       target: { kind: 'document', field: 'review.warnings' } }]);

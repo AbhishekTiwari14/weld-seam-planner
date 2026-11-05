@@ -6,6 +6,9 @@ import { createImportController, type ImportPort } from '../src/import/store.ts'
 import type { ImportPreview, WorkerResponse } from '../src/import/types.ts';
 import type { SourceUnit } from '../src/domain/contracts.ts';
 import { analyticTriangles, asciiStl, binaryStl } from './helpers/stl.ts';
+import { commitDraft } from '../src/planning/draft.ts';
+import { renameSeam } from '../src/domain/operations.ts';
+import { testId } from './helpers.ts';
 
 const bytes = (text: string) => new TextEncoder().encode(text).buffer;
 function sample(text = asciiStl(analyticTriangles), unit: SourceUnit = 'mm') {
@@ -138,6 +141,30 @@ describe('atomic import lifecycle', () => {
     controller.start(file); ports[0]!.receive({ type: 'ready', asset: sample().asset });
     expect(controller.store.getState().active).toBeNull();
     expect(ports[0]!.stopped).toBe(true);
+    controller.dispose();
+  });
+  it('preserves complete edited plans on failure/cancel and atomically resets on successful replacement', () => {
+    const { controller, ports, file } = harness(); const { asset, preview } = sample();
+    controller.start(file); ports[0]!.receive({ type: 'preview', preview }); controller.confirm('mm'); ports[0]!.receive({ type: 'ready', asset });
+    controller.editPlan(asset.workpiece.id, (document) => commitDraft(document, [
+      { id: testId(100), positionMm: [0, 0, 5] }, { id: testId(101), positionMm: [10, 0, 5] },
+    ], testId(102), 'Root'));
+    const planned = controller.store.getState().active;
+    controller.editPlan(asset.workpiece.id, (document) => renameSeam(document, testId(102), 'Root'));
+    expect(controller.store.getState().active).toBe(planned);
+    controller.start(file); ports[1]!.receive({ type: 'error', message: 'Bad replacement' });
+    expect(controller.store.getState().active).toBe(planned);
+    controller.start(file); ports[2]!.receive({ type: 'preview', preview }); controller.cancel();
+    expect(controller.store.getState().active).toBe(planned);
+    expect(() => controller.editPlan(asset.workpiece.id, (document) => {
+      document.content.workpiece.source.unit = 'm'; return document;
+    })).toThrow(/identity/);
+    expect(controller.store.getState().active).toBe(planned);
+    const next = sample();
+    controller.start(file); ports[3]!.receive({ type: 'preview', preview: next.preview }); controller.confirm('mm'); ports[3]!.receive({ type: 'ready', asset: next.asset });
+    expect(controller.store.getState().active?.document.content.sequence).toEqual([]);
+    expect(controller.store.getState().active?.document.revision).toBe(0);
+    expect(() => controller.editPlan(asset.workpiece.id, (document) => document)).toThrow(/workpiece changed/);
     controller.dispose();
   });
   it('terminates stalled processing while allowing an engineer to leave unit review open', () => {

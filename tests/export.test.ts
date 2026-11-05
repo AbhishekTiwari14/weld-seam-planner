@@ -85,6 +85,45 @@ describe('versioned weld-job contract', () => {
     }
   });
 
+  it('accepts browser-produced warning arithmetic across runtimes without changing coordinates', () => {
+    // Actual Chrome surface picks on the authored 50 MiB fixture. Chrome computed
+    // 94.26362249342733 degrees; Node 24 computed 94.26362249342735 on this host.
+    const plan = samplePlan();
+    plan.content.workpiece.boundsMm = { min: [0, 0, 0], max: [499.9, 499.9, 0] };
+    const positions: [number, number, number][] = [
+      [129.03932270699966, 411.16423639066704, -7.848892200960192e-14],
+      [38.230309727780536, 343.0574766562525, 0],
+      [273.0149170448388, 74.23646811255267, -7.848892200960192e-14],
+    ];
+    const seam = plan.content.seamsById[sampleSeamId]!;
+    seam.geometry.points.forEach((point, i) => { point.positionMm = positions[i]!; });
+    const job = createWeldJob(plan);
+    const warning = job.review.warnings[0]!;
+    expect(warning.code).toBe('TURN_ANGLE_HIGH');
+    if (warning.code !== 'TURN_ANGLE_HIGH') throw new Error('Missing turn warning');
+    warning.valueDeg = 94.26362249342733;
+    expect(validateWeldJob(job).seams[0]!.geometry.points.map((point) => point.positionMm)).toEqual(positions);
+    warning.valueDeg += 1e-8;
+    expect(() => validateWeldJob(job)).toThrow(/Review warnings/);
+  });
+
+  it('allows only floating-point roundoff in measured warnings, with exact identities and counts', () => {
+    const job = createWeldJob(samplePlan());
+    for (const warning of job.review.warnings) {
+      if (warning.code === 'SHORT_SEGMENT') warning.valueMm += Number.EPSILON;
+      if (warning.code === 'TURN_ANGLE_HIGH') warning.valueDeg *= 1 + Number.EPSILON;
+    }
+    expect(() => validateWeldJob(job)).not.toThrow();
+    const short = job.review.warnings.find((warning) => warning.code === 'SHORT_SEGMENT')!;
+    short.valueMm += 1e-10;
+    expect(() => validateWeldJob(job)).toThrow(/Review warnings/);
+    const plan = samplePlan(); plan.content.workpiece.source.omittedDegenerateTriangles = 1;
+    const omitted = createWeldJob(plan);
+    const count = omitted.review.warnings.find((warning) => warning.code === 'DEGENERATE_TRIANGLES_OMITTED')!;
+    count.count++;
+    expect(() => validateWeldJob(omitted)).toThrow(/Review warnings/);
+  });
+
   it('carries omitted-triangle evidence and explicit downstream limitations', () => {
     const plan = samplePlan(); plan.content.workpiece.source.omittedDegenerateTriangles = 1;
     const job = createWeldJob(plan);

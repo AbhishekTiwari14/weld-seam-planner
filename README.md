@@ -1,6 +1,6 @@
 # Armatrix Weld Seam Planner
 
-Browser-based engineering prototype. Milestone 2 adds local STL import, physical-unit confirmation, and an interactive engineering viewport to the validated Milestone 1 foundation.
+Browser-based engineering prototype. Milestone 3 completes manual weld planning: import STL, confirm units, pick surface points, configure each seam, arrange execution order, review and download a validated weld-job JSON file.
 
 ## Local development
 
@@ -11,8 +11,8 @@ Use Node.js 24 and npm. Install with `npm ci`, then run `npm run dev`.
 - `npm run build` — typecheck and production bundle.
 - `npm run preview` — serve the production bundle locally.
 - `npm run schema:generate` — regenerate the versioned JSON Schema and export fixtures.
-- `npm run test:browser` — real Chrome/Chromium rendering, camera, picking, and import lifecycle tests. Windows uses installed Chrome; elsewhere run `npx playwright install chromium` first.
-- `npm run test:production` — build first, then verify the production worker, units, rendered viewport, and exclusion of development diagnostics against a temporary local preview server.
+- `npm run test:browser` — real Chrome/Chromium rendering, camera, picking, import lifecycle and end-to-end planning/download tests. Windows uses installed Chrome; elsewhere run `npx playwright install chromium` first.
+- `npm run test:production` — build first, then verify the complete surface-authoring, parameter, sequence, review and JSON-download workflow, plus production worker/units and exclusion of development diagnostics against a temporary local preview server.
 
 The application uses Vite, React, TypeScript, React Three Fiber, Three.js, Zustand, and Zod. Large-mesh picking uses three-mesh-bvh after measured linear-raycast latency justified it. The domain foundation remains independent of the renderer and store.
 
@@ -31,6 +31,8 @@ This is a weld **plan**, not an executable robot trajectory. Source units and wo
 
 ## Review materials
 
+- [Manual planning architecture and exact acceptance procedure](docs/seam-planning.md)
+- [Milestone 3 verification and remaining limits](docs/milestone-3-verification.md)
 - [Architecture and numerical policy](docs/architecture.md)
 - [STL import, precision, ownership, and resource policy](docs/import-viewer.md)
 - [Measured performance, unfamiliar models, acceptance evidence and limitations](docs/milestone-2-verification.md)
@@ -44,11 +46,13 @@ This is a weld **plan**, not an executable robot trajectory. Source units and wo
 
 The fixture's SHA-256 and welding settings are illustrative. They do not represent an imported model or a recommended welding procedure.
 
-## Explicit limits of this milestone
+## Using the workbench
 
 Import an STL, confirm mm/cm/m/in against the dimension preview, then orbit, pan, zoom, fit (`F`) and reset (`Home`). Shortcuts apply while the viewport is focused. Replacements remain staged until confirmed. Files are processed locally in a cancellable worker; no model upload or backend is involved. Development URL `/?inspect=1` enables a surface-hit diagnostic; it is absent from production builds.
 
-Seam authoring, welding-parameter UI, sequencing UI, candidate detection, export download UI, persistence, and deployment remain outside this milestone. The controller-neutral JSON foundation is unchanged. CI checks source, tests, build, browser acceptance and schema drift; no branch is pushed or deployed by this work.
+Choose **Add seam**, click at least two surface points, then **Finish seam** (Enter). Escape cancels and Backspace removes the last draft point while the viewport is focused. Select a seam to rename it, inspect ordered points and configure travel speed (mm/s), current (A) and voltage (V); **Apply parameters** commits all three. Missing targets block export. Move seams earlier/later, then **Review & Export** to download the validated plan. Unfinished drafts are excluded explicitly.
+
+Lines are straight chords between clicked surface points, not surface-following robot trajectories. Geometry warnings and nominal arc-on time support inspection, not process certification. Plans live in memory; refreshing loses the session. Point replacement/insertion, undo/redo, reversal UI and richer diagnostics are Milestone 4; candidate detection, persistence and deployment are later. The controller-neutral JSON contract is unchanged. CI checks source, tests, build, browser acceptance and schema drift; this work does not push or deploy a branch.
 
 ## Reproduce capacity and unfamiliar-file checks
 

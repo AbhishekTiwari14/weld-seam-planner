@@ -65,7 +65,9 @@ There are at most 100 seams and 10,000 total points. IDs must be globally unique
 | `TURN_ANGLE_HIGH` | `seamId`, `pointId`, `valueDeg` | Direction change above 45 degrees plus 1e-6 degrees comparison tolerance |
 | `DEGENERATE_TRIANGLES_OMITTED` | `count` | Nonzero number omitted during import |
 
-These are warnings, not certified machine limits. Export regenerates warnings from the committed document and rejects geometric/structural errors. The library's external-job validator also recomputes warning identities and values and rejects stale, forged, missing, or duplicate records. Warning array order is non-semantic. Exact numeric warning reproduction is expected for this ruleset/exporter; a differently implemented downstream checker may need a documented numerical comparison policy.
+These are warnings, not certified machine limits. Export regenerates warnings from the committed document and rejects geometric/structural errors. The library's external-job validator also recomputes warning identities and values and rejects stale, forged, missing, or duplicate records. Warning array order is non-semantic.
+
+External warning comparison requires exact identities, membership and integer counts. Derived `valueMm`/`valueDeg` measurements allow only `32 × Number.EPSILON × max(1, |actual|, |expected|)` difference. This is a floating-point evaluation allowance, not a physical tolerance: real Chrome/Node execution produced a turn of `94.26362249342733` versus `94.26362249342735` degrees from identical coordinates. Thresholds, coordinates and parameters are not relaxed. A changed warning set is still rejected, including near a classification boundary. Validation returns freshly recomputed warnings in canonical order. Structural schema and heuristic ruleset remain v1; the narrow consumer comparison correction adds no fields or new warning thresholds.
 
 `review.notAssessed` is the fixed ordered list:
 
@@ -84,7 +86,7 @@ These are warnings, not certified machine limits. Export regenerates warnings fr
 
 A downstream adapter checks schema version and semantic invariants, resolves IDs through `sequence`, and reads each ordered millimetre path plus process targets. It must then supply controller-specific calibration, tool poses, process setup, motion planning, and execution validation. Source units must **not** be applied again. The plan alone is not suitable for direct robot execution.
 
-Serialization uses schema-defined property order, lexicographically ID-sorted seam records, authoritative sequence order, two-space indentation, and a final newline. It introduces no deliberate coordinate rounding or timestamps. Normal JSON number serialization applies, including normalization of negative zero. The same validated data produces the same bytes regardless of input object insertion order.
+Serialization uses schema-defined property order, lexicographically ID-sorted seam records, authoritative sequence order, two-space indentation, and a final newline. It introduces no deliberate coordinate rounding or timestamps. Normal JSON number serialization applies, including normalization of negative zero. The same validated data produces the same bytes regardless of input object insertion order within a runtime. Across runtimes, recomputed diagnostic measurements may differ in their last floating-point bits; source coordinates are preserved. This format is not a cross-platform cryptographic canonicalization scheme.
 
 Use the exported `validateWeldJob` function for both structure and semantics; Ajv/JSON Schema alone checks only structure. Zod failures identify schema paths; semantic failures use `PlanValidationError.findings`. Breaking contract changes require a new major version; do not add unrecognized detector fields to v1. The current consumer deliberately accepts only the exact implemented schema and ruleset versions.
 
