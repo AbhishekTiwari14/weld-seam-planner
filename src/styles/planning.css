@@ -29,6 +29,19 @@
 .sequence-actions button { padding: 4px 8px; border: 0; font-size: 14px; }
 .seam-panel-footer { border-top: 1px solid var(--brand-light-sand-s2); padding: 14px 18px; display: grid; gap: 10px; }
 .seam-panel-footer > span { color: var(--brand-revolution-green); font-size: 10px; }
+.history-actions { display: flex; gap: 8px; }
+.history-actions button { flex: 1; padding: 7px; font-size: 11px; }
+.point-select, .segment-select { font-size: 11px; padding: 6px 8px; text-align: left; }
+.point-select { border: 0; font-weight: 600; }
+.segment-select { display: block; width: 100%; margin-top: 7px; }
+.point-select[aria-pressed=true], .segment-select[aria-pressed=true] { background: var(--brand-light-sand-s1); outline: 1px solid var(--brand-revolution-green); }
+.point-edit-actions { margin: 12px 0; padding: 10px; border-left: 3px solid var(--brand-bright-discovery); background: var(--brand-light-sand-s1); }
+.selected-coordinates { display: block; font-size: 10px; overflow-wrap: anywhere; line-height: 1.7; margin-top: 8px; }
+.point-inspector .point-selected { border-left: 2px solid var(--brand-bright-discovery); padding-left: 8px; }
+.diagnostic-action { display: block; width: 100%; text-align: left; font-size: 11px; padding: 9px; }
+.diagnostic-action strong, .diagnostic-action span { display: block; line-height: 1.6; }
+.diagnostic-action strong { margin-bottom: 4px; }
+[data-edit-mode=replace] canvas, [data-edit-mode=insert] canvas { cursor: crosshair; }
 .seam-details { border-top: 1px solid var(--brand-light-sand-s2); margin-top: 22px; padding-top: 15px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .section-heading h3 { font-size: 11px; margin: 0; }

@@ -7,9 +7,10 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { PathPoint, Seam, Vec3 } from '../domain/contracts.ts';
 import { workpieceToView, type ViewTransform } from '../geometry/coordinates.ts';
 
-export function SeamLayer({ seams, selectedId, draft, preview, view, selectable }: {
+export function SeamLayer({ seams, selectedId, draft, preview, view, selectable, pointHighlight = null, segmentHighlight = null, editPreview = null }: {
   seams: readonly Seam[]; selectedId: string | null; draft: readonly PathPoint[] | null; preview: Vec3 | null;
   view: ViewTransform; selectable: RefObject<Line2[]>;
+  pointHighlight?: Vec3 | null; segmentHighlight?: readonly Vec3[] | null; editPreview?: readonly Vec3[] | null;
 }) {
   const { scene, invalidate, size } = useThree();
   useLayoutEffect(() => {
@@ -66,9 +67,21 @@ export function SeamLayer({ seams, selectedId, draft, preview, view, selectable 
         markers([next], '#F6F6EE', 6);
       }
     }
+    if (segmentHighlight) {
+      const points = segmentHighlight.map((point) => workpieceToView(point, view));
+      line(points, '#F6F6EE', 6); markers(points, '#F6F6EE', 11);
+    }
+    if (pointHighlight) {
+      const points = [workpieceToView(pointHighlight, view)];
+      markers(points, '#030500', 20); markers(points, '#E97F01', 16); markers(points, '#F6F6EE', 8);
+    }
+    if (editPreview) {
+      const points = editPreview.map((point) => workpieceToView(point, view));
+      line(points, '#628047', 4); markers(points, '#F6F6EE', 7);
+    }
     selectable.current = lines;
     scene.add(group); invalidate();
     return () => { selectable.current = []; scene.remove(group); for (const resource of resources) resource.dispose(); invalidate(); };
-  }, [seams, selectedId, draft, preview, view, selectable, scene, invalidate, size.width, size.height]);
+  }, [seams, selectedId, draft, preview, view, selectable, pointHighlight, segmentHighlight, editPreview, scene, invalidate, size.width, size.height]);
   return null;
 }

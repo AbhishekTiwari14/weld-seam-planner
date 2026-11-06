@@ -7,6 +7,8 @@ import { validatePlanning } from '../validation/planning.ts';
 import { formatDimension } from './ImportDialog.tsx';
 import { displayTime } from './SeamPanel.tsx';
 import { PARAMETER_FIELDS } from './ParameterEditor.tsx';
+import { GeometryDiagnostics } from './GeometryDiagnostics.tsx';
+import type { GeometrySelection } from '../planning/selection.ts';
 
 const limitations: Record<typeof NOT_ASSESSED[number], string> = {
   surface_conformance: 'Segments following the workpiece surface', process_suitability: 'Material, joint and process suitability',
@@ -21,8 +23,9 @@ function findingText(finding: Finding, document: PlanningDocument) {
   return `${seam ? `${seam.name}: ` : ''}${field ? `${field.label} (${field.unit}) is required.` : finding.message}`;
 }
 
-export function ReviewDialog({ document, draftPending, getCurrentDocument, onClose }: {
+export function ReviewDialog({ document, draftPending, getCurrentDocument, onClose, onInspect }: {
   document: PlanningDocument; draftPending: boolean; getCurrentDocument: () => PlanningDocument; onClose: () => void;
+  onInspect: (target: GeometrySelection) => void;
 }) {
   const ref = useRef<HTMLDialogElement | null>(null);
   const [notice, setNotice] = useState('');
@@ -46,7 +49,8 @@ export function ReviewDialog({ document, draftPending, getCurrentDocument, onClo
     })}</ol>{!document.content.sequence.length && <p className="small">No committed seams yet.</p>}</section>
     <section><h3>Validation {errors.length ? `· ${errors.length} blocking issues` : '· Ready to export'}</h3>
       {!!errors.length && <ul className="review-errors">{errors.map((finding, i) => <li key={i}>{findingText(finding, document)}</li>)}</ul>}
-      {!!warnings.length && <><h3>Engineering warnings · {warnings.length}</h3><ul className="diagnostic-list">{warnings.map((finding, i) => <li key={i}>{findingText(finding, document)}</li>)}</ul></>}
+      {!!warnings.length && <><h3>Engineering warnings · {warnings.length}</h3><GeometryDiagnostics findings={warnings} document={document} disabled={draftPending} onInspect={onInspect} />
+        {draftPending && <p className="small">Finish or cancel the draft before inspecting a warning.</p>}</>}
       {!warnings.length && <p className="small muted">No warnings from the current geometry rules. This does not certify weld feasibility.</p>}
     </section>
     <section className="review-limitations"><h3>Weld plan — not an executable robot program</h3>

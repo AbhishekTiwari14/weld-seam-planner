@@ -130,12 +130,17 @@ export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: 
   const [hit, setHit] = useState<SurfaceHit | null>(null);
   const [contextLost, setContextLost] = useState(false);
   useEffect(() => setHit(null), [asset]);
+  const target = planning.selection;
+  const selected = planning.seams.find((seam) => seam.id === planning.selectedId);
+  const index = target ? selected?.geometry.points.findIndex((point) => point.id === (target.kind === 'point' ? target.pointId : target.startPointId)) ?? -1 : -1;
   return <section className={`viewport${planning.draft !== null ? ' is-creating' : ''}`} aria-label="3D workpiece viewport" tabIndex={0}
+    data-edit-mode={planning.surfaceEdit?.kind ?? (planning.draft !== null ? 'create' : 'navigate')}
+    data-highlight-kind={target?.kind ?? 'none'} data-highlight-ids={target ? target.kind === 'point' ? target.pointId : `${target.startPointId},${target.endPointId}` : ''}
     onKeyDown={(e) => {
       if (e.target !== e.currentTarget) return;
-      if (planning.draft !== null && ['Enter', 'Escape', 'Backspace'].includes(e.key)) {
+      if ((planning.draft !== null || planning.surfaceEdit) && ['Enter', 'Escape', 'Backspace'].includes(e.key)) {
         e.preventDefault(); if (e.repeat) return;
-        if (e.key === 'Enter') onFinish(); else if (e.key === 'Escape') onCancel(); else onRemoveLast();
+        if (e.key === 'Enter') onFinish(); else if (e.key === 'Escape') onCancel(); else if (planning.draft !== null) onRemoveLast();
       }
       if (e.key.toLowerCase() === 'f') commands.current?.fit(); if (e.key === 'Home') { e.preventDefault(); commands.current?.reset(); }
     }}>
@@ -148,7 +153,9 @@ export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: 
     </Canvas></ViewportBoundary>
     {contextLost && <div className="viewport-fallback" role="alert"><h2>Graphics context lost</h2><p>The browser ran out of graphics resources. Reload and try a smaller model.</p></div>}
     <Orientation svgRef={orientation} />
-    <div className="viewport-mode" role="status">{planning.draft !== null ? `Creating seam · ${planning.draft.length} points · Enter to finish / Esc to cancel` :
+    <div className="viewport-mode" role="status">{planning.surfaceEdit ? `${planning.surfaceEdit.kind === 'replace' ? 'Replacing point' : 'Inserting point'} · ${planning.candidate ? 'Preview ready · Apply or pick again' : 'Click a surface to preview'} · Esc to cancel` :
+      target ? `Inspecting ${target.kind} ${index + 1} · ${selected?.name ?? 'Seam'} · highlight does not modify geometry` :
+      planning.draft !== null ? `Creating seam · ${planning.draft.length} points · Enter to finish / Esc to cancel` :
       planning.selectedId ? `Selected: ${planning.seams.find((seam) => seam.id === planning.selectedId)?.name ?? 'Seam'} · white start → orange end` : 'Navigate the model · Add seam to place surface points'}</div>
     {!!planning.seams.length && <div className="overlay-note">Path overlays remain visible through the model. Segments are straight chords.</div>}
     <div className="viewport-guidance">Drag to orbit <span>·</span> Right-drag to pan <span>·</span> Scroll to zoom</div>

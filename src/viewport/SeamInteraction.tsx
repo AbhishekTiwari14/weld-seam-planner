@@ -6,11 +6,15 @@ import type { PathPoint, Seam, Vec3 } from '../domain/contracts.ts';
 import type { MeshAsset } from '../import/types.ts';
 import { ClickGuard, pickSurface, pointerToNdc } from './picking.ts';
 import { SeamLayer } from './SeamLayer.tsx';
+import type { GeometrySelection, SurfaceEdit } from '../planning/selection.ts';
 
 export interface ViewportPlanning {
   seams: readonly Seam[];
   selectedId: string | null;
   draft: readonly PathPoint[] | null;
+  selection: GeometrySelection | null;
+  surfaceEdit: SurfaceEdit | null;
+  candidate: Vec3 | null;
   interactionEnabled: boolean;
   onPlace: (point: Vec3) => void;
   onSelect: (id: string) => void;
@@ -22,8 +26,10 @@ export function SeamInteraction({ asset, mesh, planning }: { asset: MeshAsset; m
   const { gl, camera } = useThree();
   const selectable = useRef<Line2[]>([]);
   const transient = useRef<Line2[]>([]);
+  const highlight = useRef<Line2[]>([]);
   const [preview, setPreview] = useState<Vec3 | null>(null);
   const creating = planning.draft !== null;
+  const placing = creating || planning.surfaceEdit !== null;
   const { interactionEnabled, onPlace, onSelect, onMiss } = planning;
   useEffect(() => {
     const canvas = gl.domElement;
@@ -42,14 +48,14 @@ export function SeamInteraction({ asset, mesh, planning }: { asset: MeshAsset; m
     };
     const move = (event: PointerEvent) => {
       guard.move(event.pointerId, event.clientX, event.clientY);
-      if (!creating || !interactionEnabled || event.buttons) { clear(); return; }
+      if (!placing || !interactionEnabled || event.buttons) { clear(); return; }
       cancelAnimationFrame(hoverFrame);
       hoverFrame = requestAnimationFrame(() => { hoverFrame = 0; setPreview(surface(event.clientX, event.clientY)?.pointMm ?? null); });
     };
     const up = (event: PointerEvent) => {
       clear();
       if (!interactionEnabled || !guard.end(event.pointerId, event.clientX, event.clientY, event.timeStamp)) return;
-      if (creating) {
+      if (placing) {
         const hit = surface(event.clientX, event.clientY);
         if (hit) onPlace(hit.pointMm); else onMiss();
       } else {
@@ -70,7 +76,29 @@ export function SeamInteraction({ asset, mesh, planning }: { asset: MeshAsset; m
       canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointerleave', clear); canvas.removeEventListener('wheel', cancel);
       window.removeEventListener('blur', cancel);
     };
-  }, [asset, mesh, camera, gl, creating, interactionEnabled, onPlace, onSelect, onMiss]);
+  }, [asset, mesh, camera, gl, placing, interactionEnabled, onPlace, onSelect, onMiss]);
+  const target = planning.selection;
+  const seam = planning.seams.find((item) => item.id === target?.seamId);
+  const points = seam?.geometry.points ?? [];
+  const pointHighlight = target?.kind === 'point' ? points.find((point) => point.id === target.pointId)?.positionMm ?? null : null;
+  const segmentHighlight = target?.kind === 'segment' ? points.filter((point) => point.id === target.startPointId || point.id === target.endPointId).map((point) => point.positionMm) : null;
+  const intent = planning.surfaceEdit;
+  // Once clicked, keep the exact Apply candidate visible while the pointer moves.
+  const candidate = planning.candidate ?? preview;
+  let editPreview: Vec3[] | null = null;
+  if (intent && candidate) {
+    const editing = planning.seams.find((item) => item.id === intent.seamId)?.geometry.points ?? [];
+    const index = editing.findIndex((point) => point.id === (intent.kind === 'replace' ? intent.pointId : intent.startPointId));
+    if (index >= 0 && (intent.kind === 'replace' || editing[index + 1]?.id === intent.endPointId)) {
+      // Provisional display only: validate the whole document on click/Apply,
+      // not on every hover. Only the affected adjacent chords are rebuilt.
+      editPreview = intent.kind === 'replace'
+        ? [editing[index - 1]?.positionMm, candidate, editing[index + 1]?.positionMm].filter((point): point is Vec3 => !!point)
+        : [editing[index]!.positionMm, candidate, editing[index + 1]!.positionMm];
+    }
+  }
   return <><SeamLayer seams={planning.seams} selectedId={planning.selectedId} draft={null} preview={null} view={asset.view} selectable={selectable} />
-    {creating && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={planning.draft} preview={preview} view={asset.view} selectable={transient} />}</>;
+    {creating && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={planning.draft} preview={preview} view={asset.view} selectable={transient} />}
+    {target && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={null} preview={null} view={asset.view} selectable={highlight}
+      pointHighlight={pointHighlight} segmentHighlight={segmentHighlight} editPreview={editPreview} />}</>;
 }

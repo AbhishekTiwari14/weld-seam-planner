@@ -2,6 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { PROCESS_PROFILE, type SourceUnit, type PlanningDocument } from '../domain/contracts.ts';
 import { requireValidPlanning } from '../validation/planning.ts';
 import { IMPORT_SAFETY_LIMITS, type ActiveWorkpiece, type ImportPreview, type WorkerRequest, type WorkerResponse } from './types.ts';
+import { PlanHistory, type HistoryDirection, type HistorySummary } from '../planning/history.ts';
 
 export interface ImportPort {
   send: (request: WorkerRequest) => void;
@@ -14,10 +15,12 @@ export interface ImportState {
   phase: 'idle' | 'processing' | 'confirming';
   status: string;
   error: string | null;
+  history: HistorySummary;
 }
 
 export function createImportController(createPort: () => ImportPort) {
-  const store = createStore<ImportState>(() => ({ active: null, preview: null, phase: 'idle', status: 'Ready to import', error: null }));
+  const history = new PlanHistory();
+  const store = createStore<ImportState>(() => ({ active: null, preview: null, phase: 'idle', status: 'Ready to import', error: null, history: history.summary() }));
   let generation = 0;
   let port: ImportPort | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -40,9 +43,17 @@ export function createImportController(createPort: () => ImportPort) {
       if (document.jobId !== active.document.jobId || JSON.stringify(document.content.workpiece) !== JSON.stringify(active.document.content.workpiece)) {
         throw new Error('Plan edits cannot replace the workpiece or job identity.');
       }
-      if (JSON.stringify(document) === JSON.stringify(active.document)) return;
+      if (JSON.stringify(document.content) === JSON.stringify(active.document.content)) return;
       if (document.revision !== active.document.revision + 1) throw new Error('Plan edits must increment revision exactly once.');
-      store.setState({ active: { asset: active.asset, document } });
+      history.record(active.document.content);
+      store.setState({ active: { asset: active.asset, document }, history: history.summary() });
+    },
+    travelHistory(workpieceId: string, direction: HistoryDirection) {
+      const active = store.getState().active;
+      if (!active || active.asset.workpiece.id !== workpieceId) throw new Error('The workpiece changed. Start this edit again.');
+      const document = history.restore(active.document, direction);
+      if (document === active.document) return;
+      store.setState({ active: { asset: active.asset, document }, history: history.summary() });
     },
     start(file: File) {
       stop();
@@ -66,7 +77,8 @@ export function createImportController(createPort: () => ImportPort) {
             const document = requireValidPlanning({ jobId: crypto.randomUUID(), revision: 0,
               content: { workpiece: response.asset.workpiece, processProfile: PROCESS_PROFILE, seamsById: {}, sequence: [] } });
             stop();
-            store.setState({ active: { asset: response.asset, document }, preview: null, phase: 'idle', error: null, status: 'Model ready' });
+            history.clear();
+            store.setState({ active: { asset: response.asset, document }, preview: null, phase: 'idle', error: null, status: 'Model ready', history: history.summary() });
           } catch (error) { fail(error instanceof Error ? error.message : 'Invalid workpiece metadata.'); }
         }, (message) => { if (ticket === generation) fail(message); });
         deadline();

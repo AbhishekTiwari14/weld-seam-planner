@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
 import { chromium, expect } from '@playwright/test';
 import path from 'node:path';
-import { configureSeam, createSeam, downloadJob, visiblePointCoordinates } from '../tests/helpers/planning-browser.ts';
+import { clickPlate, configureSeam, createSeam, downloadJob, visiblePointCoordinates } from '../tests/helpers/planning-browser.ts';
 
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], { windowsHide: true, stdio: 'pipe' });
 let serverOutput = '';
@@ -41,6 +41,17 @@ try {
     await createSeam(page, [[-5, 15, 5], [15, 15, 5], [15, 30, 5]], 'Production polyline');
     await configureSeam(page, '10', '110', '24');
     await page.getByRole('button', { name: 'Move Production polyline earlier', exact: true }).click();
+    await visiblePointCoordinates(page);
+    const ids = await page.getByTestId('path-point').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-point-id')));
+    await page.getByRole('button', { name: 'Select point 2', exact: true }).click();
+    await page.getByRole('button', { name: 'Replace on surface', exact: true }).click();
+    await clickPlate(page, [20, 15, 5]);
+    await page.getByRole('button', { name: /^Apply point/ }).click();
+    const edited = await visiblePointCoordinates(page);
+    await page.getByRole('button', { name: /^Undo / }).click();
+    await page.getByRole('button', { name: /^Redo / }).click();
+    expect(await visiblePointCoordinates(page)).toEqual(edited);
+    expect(await page.getByTestId('path-point').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-point-id')))).toEqual(ids);
     await mkdir('.local/evidence', { recursive: true });
     await page.screenshot({ path: '.local/evidence/production.png' });
     await page.getByRole('button', { name: 'Review & Export', exact: true }).click();
@@ -53,9 +64,10 @@ try {
     expect(straight.geometry.points.map((point) => point.positionMm)).toEqual(points);
     expect(straight.geometry.points[0]!.positionMm[0]).toBeCloseTo(-5 * 25.4, 2);
     expect(straight.geometry.points[0]!.positionMm[2]).toBeCloseTo(5 * 25.4, 8);
+    expect(job.seams.find((seam) => seam.name === 'Production polyline')!.geometry.points.map((point) => point.positionMm)).toEqual(edited);
     await page.screenshot({ path: '.local/evidence/production-review.png' });
     expect(errors).toEqual([]);
     expect(clockWarnings).toEqual([]);
-    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring, independent parameters, sequence, review, validated JSON download, and development-diagnostic exclusion.');
+    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring and point replacement, undo/redo, independent parameters, sequence, review, validated JSON download, and development-diagnostic exclusion.');
   } finally { await browser.close(); }
 } finally { server.kill(); }
