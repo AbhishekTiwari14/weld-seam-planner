@@ -1,6 +1,6 @@
 # Armatrix Weld Seam Planner
 
-Browser-based engineering prototype. Milestone 4 adds precise point replacement/insertion/removal, direction reversal, bounded undo/redo and geometry-linked diagnostics to the complete manual weld-planning workflow.
+Browser-based engineering prototype. Milestone 5 adds engineering review grouping, warning navigation, focus framing, and reliable project recovery from original STL + exported weld-job JSON to the complete manual weld-planning workflow.
 
 ## Local development
 
@@ -31,6 +31,8 @@ This is a weld **plan**, not an executable robot trajectory. Source units and wo
 
 ## Review materials
 
+- [Engineering review, warning navigation and project recovery](docs/engineering-review-recovery.md)
+- [Milestone 5 verification and test evidence](docs/milestone-5-verification.md)
 - [Precision seam editing, history rules and manual acceptance](docs/seam-editor-history.md)
 - [Milestone 4 verification and measured limits](docs/milestone-4-verification.md)
 - [Manual planning architecture and exact acceptance procedure](docs/seam-planning.md)
@@ -54,7 +56,9 @@ Import an STL, confirm mm/cm/m/in against the dimension preview, then orbit, pan
 
 Choose **Add seam**, click at least two surface points, then **Finish seam** (Enter). Escape cancels and Backspace removes the last draft point while the viewport is focused. Select a seam to rename it, inspect ordered points and configure travel speed (mm/s), current (A) and voltage (V); **Apply parameters** commits all three. Missing targets block export. Move seams earlier/later, then **Review & Export** to download the validated plan. Unfinished drafts are excluded explicitly.
 
-Select a point or segment in **Ordered points & geometry** to replace, insert or remove it. Surface edits show a candidate before **Apply point**; Escape cancels. Reverse direction changes traversal. Undo/Redo restore committed content under increasing revisions, retaining up to 50 states within a 16 MiB snapshot budget. Native text undo remains available inside input fields. Clicking a warning highlights its point/segment without changing geometry.
+Select a point or segment in **Ordered points & geometry** to replace, insert or remove it. Surface edits show a candidate before **Apply point**; Escape cancels. Reverse direction changes traversal. Undo/Redo restore committed content under increasing revisions, retaining up to 50 states within a 16 MiB snapshot budget. Native text undo remains available inside input fields. Engineering review groups findings by workpiece and execution sequence; clicking an error or warning navigates directly to the parameter input or geometry. **Focus selection** frames selected geometry without altering sightlines.
+
+Use **Restore Plan** in the topbar to reliably reconstruct a previous plan from its original STL and exported weld-job JSON without server dependencies. Verification checks SHA-256 fingerprint, source unit, bounds, schema, and point IDs before activation. Failed or cancelled recovery leaves the current workspace untouched.
 
 Lines are straight chords between clicked surface points, not surface-following robot trajectories. Geometry warnings and nominal arc-on time support inspection, not process certification. Plans and history live in memory; refreshing loses the session. Successful model replacement clears history. Candidate detection, persistence and deployment remain later work. The controller-neutral JSON contract is unchanged. CI checks source, tests, build, browser acceptance and schema drift; this work does not push or deploy a branch.
 

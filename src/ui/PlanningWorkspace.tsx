@@ -11,6 +11,7 @@ import { ReviewDialog } from './ReviewDialog.tsx';
 import { applySurfaceEdit, selectionExists, type GeometrySelection, type SurfaceEdit } from '../planning/selection.ts';
 import type { HistoryDirection } from '../planning/history.ts';
 import { isTextEditingTarget } from '../planning/shortcuts.ts';
+import { findingIdentity, type ReviewSnapshot } from '../planning/review.ts';
 
 const Viewport = lazy(() => import('../viewport/Viewport.tsx').then((module) => ({ default: module.Viewport })));
 
@@ -27,12 +28,15 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
   const [selection, setSelection] = useState<GeometrySelection | null>(null);
   const [surfaceEdit, setSurfaceEdit] = useState<SurfaceEdit | null>(null);
   const [candidate, setCandidate] = useState<Vec3 | null>(null);
+  const [lastReview, setLastReview] = useState<ReviewSnapshot | null>(null);
+  const [parameterFocus, setParameterFocus] = useState<string | null>(null);
   const history = useStore(controller.store, (state) => state.history);
   // Preserve the renderer/camera owner across imports; reset only editor state before paint.
   useLayoutEffect(() => {
     setDraft(null); setSelectedId(null); setError(null); setParameterDirty(false); setReviewing(false);
     setSelection(null); setSurfaceEdit(null); setCandidate(null);
-  }, [asset.workpiece.id]);
+    setLastReview(null); setParameterFocus(null);
+  }, [asset.geometryRevision]);
   useLayoutEffect(() => {
     const selected = selectedId ? document.content.seamsById[selectedId] : undefined;
     if (selectedId && !selected) setSelectedId(null);
@@ -42,11 +46,17 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
     }
   }, [document, selectedId, selection, surfaceEdit, asset.workpiece.id]);
   const analysis = useMemo(() => validatePlanning(document), [document]);
+  useEffect(() => {
+    if (!parameterFocus || reviewing) return;
+    container.current?.querySelector<HTMLInputElement>(`input[name="${parameterFocus}"]`)?.focus();
+    setParameterFocus(null);
+  }, [parameterFocus, reviewing]);
+  const closeReview = () => { setLastReview({ revision: document.revision, identities: validatePlanning(document, 'export').findings.map(findingIdentity) }); setReviewing(false); };
   const seams = useMemo(() => document.content.sequence.map((id) => document.content.seamsById[id]!), [document]);
   const edit = useCallback((operation: (current: PlanningDocument) => PlanningDocument) => {
-    try { controller.editPlan(asset.workpiece.id, operation); setError(null); return true; }
+    try { controller.editPlan(asset.workpiece.id, operation, asset.geometryRevision); setError(null); return true; }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'The edit could not be applied.'); return false; }
-  }, [asset.workpiece.id, controller]);
+  }, [asset.workpiece.id, asset.geometryRevision, controller]);
   const place = useCallback((point: Vec3) => {
     if (surfaceEdit) {
       try { applySurfaceEdit(document, surfaceEdit, point); setCandidate(point); setError(null); }
@@ -84,9 +94,9 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
   const removeLast = () => { setDraft((points) => points?.slice(0, -1) ?? null); setError(null); };
   const travel = useCallback((direction: HistoryDirection) => {
     if (draft !== null || surfaceEdit || parameterDirty || reviewing) return;
-    try { controller.travelHistory(asset.workpiece.id, direction); setError(null); }
+    try { controller.travelHistory(asset.workpiece.id, direction, asset.geometryRevision); setError(null); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'History could not be restored.'); }
-  }, [asset.workpiece.id, controller, draft, surfaceEdit, parameterDirty, reviewing]);
+  }, [asset.workpiece.id, asset.geometryRevision, controller, draft, surfaceEdit, parameterDirty, reviewing]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || isTextEditingTarget(event.target) || globalThis.document.querySelector('dialog[open]')) return;
@@ -122,9 +132,11 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
         if (remainingPointCapacity(document) < 2) { setError('Fewer than two points remain within the 10,000-point plan limit.'); return; }
         setError(null); setSelection(null); setDraft([]); container.current?.querySelector<HTMLElement>('.viewport')?.focus();
       }} />
-    {reviewing && <ReviewDialog document={document} draftPending={draft !== null} onClose={() => setReviewing(false)} onInspect={(target) => { selectGeometry(target); setReviewing(false); }} getCurrentDocument={() => {
+    {reviewing && <ReviewDialog document={document} draftPending={draft !== null} previousReview={lastReview} onClose={closeReview}
+      onCorrectParameter={(seamId, field) => { select(seamId); closeReview(); setParameterFocus(field); }}
+      onDownloaded={(revision) => controller.markDownloaded(asset.geometryRevision, revision)} onInspect={(target) => { selectGeometry(target); closeReview(); }} getCurrentDocument={() => {
       const latest = controller.store.getState().active;
-      if (!latest || latest.asset.workpiece.id !== asset.workpiece.id) throw new Error('The workpiece changed. Review the new plan before exporting.');
+      if (!latest || latest.asset.geometryRevision !== asset.geometryRevision) throw new Error('The workpiece changed. Review the new plan before exporting.');
       return latest.document;
     }} />}
   </div>;

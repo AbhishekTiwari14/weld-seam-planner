@@ -18,6 +18,7 @@ export function PointInspector({ document, seam, analysis, selection, disabled, 
   useEffect(() => {
     if (!selection || !ref.current) return;
     ref.current.open = true;
+    ref.current.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')?.focus({ preventScroll: true });
     ref.current.querySelector<HTMLElement>('.point-edit-actions')?.scrollIntoView({ block: 'nearest' });
   }, [selection]);
   return <details ref={ref} className="point-inspector"><summary>Ordered points & geometry</summary>
