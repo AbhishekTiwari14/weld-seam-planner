@@ -15,6 +15,8 @@
     "test:browser": "playwright test",
     "test:production": "node scripts/check-production.ts",
     "schema:generate": "node scripts/generate-contract.ts",
+    "samples:generate": "node scripts/generate-samples.ts",
+    "inspect:fixture": "node examples/inspect-weld-job.ts fixtures/weld-job.v1.json",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

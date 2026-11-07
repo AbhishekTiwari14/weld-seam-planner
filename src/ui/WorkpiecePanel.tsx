@@ -1,7 +1,15 @@
 import type { MeshAsset } from '../import/types.ts';
 import { formatDimension } from './ImportDialog.tsx';
 
-export function WorkpiecePanel({ asset, onReplace }: { asset: MeshAsset; onReplace: () => void }) {
+export function WorkpiecePanel({
+  asset,
+  onReplace,
+  onOpenSamples,
+}: {
+  asset: MeshAsset;
+  onReplace: () => void;
+  onOpenSamples?: (() => void) | undefined;
+}) {
   const { workpiece } = asset;
   const source = workpiece.source;
   return <aside className="workpiece-panel"><div className="panel-heading"><span className="eyebrow">01 / WORKPIECE</span><span className="ready-dot">Ready</span></div>
@@ -12,6 +20,9 @@ export function WorkpiecePanel({ asset, onReplace }: { asset: MeshAsset; onRepla
     <div className="coordinate-note"><span className="coordinate-mark">↗</span><p>Source origin preserved.<br /><span>Centered for viewing only.</span></p></div>
     {asset.warnings.length > 0 && <div className="panel-section"><h3>Import observations</h3><ul className="warnings">{asset.warnings.map((w) => <li key={w.code}>{w.message}</li>)}</ul></div>}
     <details className="provenance"><summary>Source provenance & precision</summary><p>SHA-256</p><code>{source.sha256}</code><p>Maximum display rounding per coordinate: {formatDimension(asset.maxDisplayErrorMm)} mm. This is a display measurement, not manufacturing accuracy.</p><p>Open surfaces and disconnected shells are allowed. Topology and weld suitability have not been certified.</p></details>
-    <button className="replace-button" onClick={onReplace}>Replace model <span>↗</span></button>
+    <div className="workpiece-actions">
+      <button className="replace-button" onClick={onReplace}>Replace model <span>↗</span></button>
+      {onOpenSamples && <button type="button" className="sample-button text-button" onClick={onOpenSamples}>Try another 3D sample</button>}
+    </div>
   </aside>;
 }
