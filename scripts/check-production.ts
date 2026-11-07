@@ -81,8 +81,18 @@ try {
     const restored = await downloadJob(page);
     expect(restored.text).toBe(text);
     await page.screenshot({ path: '.local/evidence/production-restored.png' });
+    await page.getByRole('button', { name: 'Close review', exact: true }).click();
+
+    // Verify production sample loading via "Try Sample"
+    await page.getByRole('button', { name: 'Try Sample', exact: true }).click();
+    await page.locator('.sample-dialog').getByRole('button', { name: 'Load Gusseted Mounting Bracket', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('gusset-bracket.stl');
+    await page.getByRole('button', { name: 'Confirm & replace model', exact: true }).click();
+    await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
+    await expect(page.locator('.workpiece-panel h2')).toHaveText('gusset-bracket.stl');
+
     expect(errors).toEqual([]);
     expect(clockWarnings).toEqual([]);
-    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring and point replacement, undo/redo, independent parameters, sequence, review, validated JSON download, development-diagnostic exclusion, and reliable project recovery.');
+    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring and point replacement, undo/redo, independent parameters, sequence, review, validated JSON download, development-diagnostic exclusion, reliable project recovery, and built-in 3D engineering samples.');
   } finally { await browser.close(); }
 } finally { server.kill(); }

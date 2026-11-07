@@ -97,5 +97,80 @@ button.text-button { padding: 6px 0; border: 0; font-size: 11px; text-decoration
 .review-sequence span { display: block; font-size: 11px; margin-top: 5px; color: var(--brand-revolution-green); }
 .review-limitations ul { font-size: 11px; line-height: 1.6; padding-left: 17px; columns: 2; }
 .review-limitations li { break-inside: avoid; padding-bottom: 5px; }
+
+/* Workflow Stepper */
+.workflow-stepper { background: var(--brand-dark-forest-s2); border-bottom: 1px solid var(--brand-dark-forest-s4); padding: 7px 20px; }
+.stepper-list { display: flex; align-items: center; justify-content: space-between; list-style: none; margin: 0; padding: 0; gap: 8px; }
+.stepper-item { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.stepper-static, .stepper-button { display: flex; align-items: center; gap: 8px; background: transparent; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--brand-light-sand-s3); text-align: left; transition: all 0.15s ease; font-family: inherit; }
+.stepper-button { cursor: pointer; }
+.stepper-button:hover, .stepper-button:focus-visible { background: var(--brand-dark-forest-s3); color: var(--brand-light-sand); outline: none; }
+.stepper-button:focus-visible { outline: 2px solid var(--brand-bright-discovery); outline-offset: 2px; }
+.stepper-number { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; font-size: 10px; font-weight: 600; background: var(--brand-dark-forest-s4); color: var(--brand-light-sand-s3); border: 1px solid var(--brand-revolution-green-t3); flex-shrink: 0; }
+.stepper-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.stepper-text strong { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.stepper-text small { font-size: 9px; color: var(--brand-light-sand-s3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stepper-divider { flex: 1; height: 1px; background: var(--brand-dark-forest-s4); min-width: 8px; }
+
+.stepper-item.is-active .stepper-static, .stepper-item.is-active .stepper-button { color: var(--brand-light-sand); }
+.stepper-item.is-active .stepper-number { background: var(--brand-bright-discovery); color: var(--brand-dark-forest); border-color: var(--brand-bright-discovery); }
+.stepper-item.is-active .stepper-text strong { color: var(--brand-light-sand); }
+.stepper-item.is-active .stepper-text small { color: var(--brand-bright-discovery-t4); }
+.stepper-item.is-completed .stepper-number { background: var(--brand-revolution-green-t4); color: var(--brand-light-sand); border-color: var(--brand-revolution-green-t4); }
+.stepper-item.is-completed .stepper-text strong { color: var(--brand-light-sand-s1); }
+.stepper-item.is-completed .stepper-divider { background: var(--brand-revolution-green-t4); }
+.stepper-item.is-ready .stepper-button { background: var(--brand-dark-forest-s3); border: 1px solid var(--brand-bright-discovery); color: var(--brand-light-sand); }
+.stepper-item.is-ready .stepper-number { background: var(--brand-bright-discovery); color: var(--brand-dark-forest); }
+
+/* Empty Workspace Split */
+.empty-split { display: grid; grid-template-columns: 360px 1fr; width: 100%; height: 100%; overflow-y: auto; background-image: radial-gradient(var(--brand-light-sand-s1) .8px, transparent .8px); background-size: 24px 24px; }
+.empty-upload-card { padding: 40px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 1px solid var(--brand-light-sand-s2); background: var(--brand-light-sand); }
+.empty-upload-card h1 { font-size: 26px; font-weight: 550; letter-spacing: -.8px; margin: 10px 0 12px; }
+.empty-upload-card p { font-size: 13px; line-height: 1.6; color: var(--brand-revolution-green); margin-bottom: 20px; }
+.empty-samples-card { padding: 32px 28px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
+.samples-card-header h2 { font-size: 22px; font-weight: 550; letter-spacing: -.6px; margin: 8px 0 6px; }
+.samples-card-header p { font-size: 12px; margin-bottom: 16px; }
+
+/* Sample Dialog & Cards */
+.sample-dialog { width: 840px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 40px); }
+.sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
+.sample-card { display: flex; flex-direction: column; background: var(--brand-light-sand); border: 1px solid var(--brand-light-sand-s2); border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(3,5,0,0.04); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.sample-card:hover { border-color: var(--brand-revolution-green); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(3,5,0,0.08); }
+.sample-card-preview { position: relative; background: var(--brand-dark-forest-s2); display: flex; align-items: center; justify-content: center; padding: 14px 8px; height: 100px; border-bottom: 1px solid var(--brand-dark-forest-s3); }
+.sample-icon { width: 85px; height: 65px; }
+.sample-badge { position: absolute; top: 6px; right: 6px; font-size: 9px; letter-spacing: 0.3px; background: var(--brand-dark-forest-t4); color: var(--brand-bright-discovery-t4); padding: 2px 5px; border-radius: 3px; border: 1px solid var(--brand-revolution-green-t3); }
+.sample-card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.sample-card-body h3 { font-size: 13px; font-weight: 600; margin: 0; line-height: 1.3; }
+.sample-meta { display: grid; gap: 2px; font-size: 10px; color: var(--brand-revolution-green); margin: 3px 0; }
+.sample-context { font-size: 10px; line-height: 1.4; color: var(--brand-dark-forest); border-left: 2px solid var(--brand-bright-discovery); padding-left: 6px; margin-top: auto; }
+.sample-card-action { padding: 8px 12px 12px; }
+.sample-card-action button { width: 100%; font-size: 11px; padding: 8px; }
+
+/* In-Panel Guidance & Step Helpers */
+.empty-guide-badge { display: inline-block; font-size: 9px; letter-spacing: 1px; color: var(--brand-bright-discovery); font-weight: 600; margin-bottom: 6px; }
+.empty-guide-steps { margin: 10px 0 14px; padding-left: 18px; font-size: 11px; line-height: 1.6; }
+.empty-guide-steps li { margin-bottom: 4px; }
+.parameter-tip-banner { background: var(--brand-light-sand-s1); border-left: 3px solid var(--brand-bright-discovery); padding: 9px 11px; font-size: 11px; margin-bottom: 12px; border-radius: 0 4px 4px 0; }
+.parameter-tip-banner strong { display: block; font-size: 11px; color: var(--brand-dark-forest); margin-bottom: 2px; }
+.parameter-tip-banner span { display: block; font-size: 10px; line-height: 1.4; color: var(--brand-revolution-green); }
+.workpiece-actions { display: grid; gap: 8px; margin-top: 20px; }
+.workpiece-actions .replace-button { margin-top: 0; }
+.sample-button { width: 100%; text-align: center; }
+
+@media (max-width: 1200px) {
+  .empty-split { grid-template-columns: 1fr; }
+  .empty-upload-card { border-right: 0; border-bottom: 1px solid var(--brand-light-sand-s2); padding: 28px 20px; }
+  .empty-samples-card { padding: 24px 20px; }
+  .sample-grid { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 1100px) { .planning-workspace .workpiece-panel { width: 190px; padding: 18px 12px; } .seam-panel { width: 300px; } }
-@media (max-width: 850px) { .planning-workspace { flex-wrap: wrap; overflow-y: auto; } .planning-workspace .workpiece-panel { width: 32%; max-height: 480px; } .planning-workspace .viewport { flex-basis: 68%; height: 480px; min-height: 360px; } .seam-panel { width: 100%; min-height: 400px; max-height: 700px; } .review-limitations ul { columns: 1; } }
+@media (max-width: 850px) {
+  .workflow-stepper { overflow-x: auto; padding: 6px 12px; }
+  .stepper-list { min-width: 580px; }
+  .sample-grid { grid-template-columns: 1fr; }
+  .planning-workspace { flex-wrap: wrap; overflow-y: auto; }
+  .planning-workspace .workpiece-panel { width: 32%; max-height: 480px; }
+  .planning-workspace .viewport { flex-basis: 68%; height: 480px; min-height: 360px; }
+  .seam-panel { width: 100%; min-height: 400px; max-height: 700px; }
+  .review-limitations ul { columns: 1; }
+}
