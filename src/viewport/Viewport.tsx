@@ -6,10 +6,11 @@ import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
 import type { MeshAsset } from '../import/types.ts';
 import { workpieceToView } from '../geometry/coordinates.ts';
 import { ClickGuard, pickSurface, pointerToNdc, type SurfaceHit } from './picking.ts';
-import { fitCamera, updateClipping } from './camera.ts';
+import { fitCamera, focusCamera, updateClipping } from './camera.ts';
+import type { Vec3 } from '../domain/contracts.ts';
 import { SeamInteraction, type ViewportPlanning } from './SeamInteraction.tsx';
 
-interface ViewportCommands { fit: () => void; reset: () => void }
+interface ViewportCommands { fit: () => void; reset: () => void; focus: (points: readonly Vec3[]) => void }
 interface DebugApi {
   snapshot: () => { camera: number[]; geometries: number; triangles: number; frame: string; geometryRevision: string; renderedGeometryRevision: string | null; renderCalls: number; renderFrame: number; timings: MeshAsset['timings']; maxDisplayErrorMm: number; lastHit: SurfaceHit | null; pickMs: number };
   project: (pointMm: [number, number, number]) => { x: number; y: number };
@@ -51,7 +52,7 @@ function Scene({ asset, commands, orientation, onHit, planning }: { asset: MeshA
     };
     orbit.addEventListener('change', update);
     const fit = (reset: boolean) => { fitCamera(camera, orbit, reset); update(); };
-    commands.current = { fit: () => fit(false), reset: () => fit(true) };
+    commands.current = { fit: () => fit(false), reset: () => fit(true), focus: (points) => { focusCamera(camera, orbit, points); update(); } };
     fit(true);
     return () => { commands.current = null; orbit.dispose(); };
   }, [camera, gl, invalidate, commands, orientation]);
@@ -144,7 +145,10 @@ export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: 
       }
       if (e.key.toLowerCase() === 'f') commands.current?.fit(); if (e.key === 'Home') { e.preventDefault(); commands.current?.reset(); }
     }}>
-    <div className="viewport-tools"><span className="viewport-caption">WORKPIECE / SOLID</span><div><button onClick={() => commands.current?.fit()} title="Fit model (F)">Fit model <kbd>F</kbd></button><button onClick={() => commands.current?.reset()} title="Reset camera (Home)">Reset view</button></div></div>
+    <div className="viewport-tools"><span className="viewport-caption">WORKPIECE / SOLID</span><div>{selected && <button disabled={planning.draft !== null || !!planning.surfaceEdit} onClick={() => {
+      const points = selected.geometry.points.filter((point) => !target || (target.kind === 'point' ? point.id === target.pointId : point.id === target.startPointId || point.id === target.endPointId));
+      commands.current?.focus(points.map((point) => workpieceToView(point.positionMm, asset.view)));
+    }}>Focus selection</button>}<button onClick={() => commands.current?.fit()} title="Fit model (F)">Fit model <kbd>F</kbd></button><button onClick={() => commands.current?.reset()} title="Reset camera (Home)">Reset view</button></div></div>
     <ViewportBoundary><Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 40, position: [1.2, -1.6, 1.1], up: [0, 0, 1], near: 0.0001, far: 5000 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       fallback={<div className="viewport-fallback" role="alert">WebGL 2 is unavailable. Enable hardware acceleration or use a supported desktop browser.</div>}

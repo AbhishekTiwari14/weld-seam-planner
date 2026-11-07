@@ -8,7 +8,7 @@ export function GeometryDiagnostics({ findings, document, disabled = false, onIn
 }) {
   return <ul className="diagnostic-list">{findings.map((finding, i) => {
     const target = finding.target;
-    if (target.kind !== 'point' && target.kind !== 'segment') return <li key={i}>{finding.message}</li>;
+    if (target.kind !== 'point' && target.kind !== 'segment') return <li key={i}>{finding.measurement && `${formatDimension(finding.measurement.value)} ${finding.measurement.unit} · `}{finding.message}</li>;
     const seam = document.content.seamsById[target.seamId];
     if (!seam) return null;
     const index = seam.geometry.points.findIndex((point) => point.id === (target.kind === 'point' ? target.pointId : target.startPointId));

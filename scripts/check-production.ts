@@ -55,7 +55,7 @@ try {
     await mkdir('.local/evidence', { recursive: true });
     await page.screenshot({ path: '.local/evidence/production.png' });
     await page.getByRole('button', { name: 'Review & Export', exact: true }).click();
-    const { job, filename } = await downloadJob(page);
+    const { job, text, filename } = await downloadJob(page);
     expect(filename).toBe('analytic-plate.weld-job.v1.json');
     expect(job.workpiece.source.unit).toBe('in');
     expect(job.seams).toHaveLength(2);
@@ -66,8 +66,23 @@ try {
     expect(straight.geometry.points[0]!.positionMm[2]).toBeCloseTo(5 * 25.4, 8);
     expect(job.seams.find((seam) => seam.name === 'Production polyline')!.geometry.points.map((point) => point.positionMm)).toEqual(edited);
     await page.screenshot({ path: '.local/evidence/production-review.png' });
+    await page.getByRole('button', { name: 'Close review', exact: true }).click();
+    await page.getByRole('button', { name: 'Restore Plan', exact: true }).click();
+    await page.getByLabel('Original STL', { exact: true }).setInputFiles(path.resolve('fixtures/models/analytic-plate.stl'));
+    await page.getByLabel('Saved weld-job JSON', { exact: true }).setInputFiles({ name: 'saved.weld-job.v1.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await page.getByRole('button', { name: 'Verify files', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('saved in source units');
+    await page.getByRole('button', { name: 'Confirm & restore plan', exact: true }).click();
+    await expect(page.locator('.statusbar')).toContainText(`Restored analytic-plate.stl · 2 seams · revision ${job.revision}`);
+    await expect(page.getByRole('button', { name: /^Undo / })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Redo / })).toBeDisabled();
+    await expect(page.locator('.local-badge')).not.toContainText('Unsaved');
+    await page.getByRole('button', { name: 'Review & Export', exact: true }).click();
+    const restored = await downloadJob(page);
+    expect(restored.text).toBe(text);
+    await page.screenshot({ path: '.local/evidence/production-restored.png' });
     expect(errors).toEqual([]);
     expect(clockWarnings).toEqual([]);
-    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring and point replacement, undo/redo, independent parameters, sequence, review, validated JSON download, and development-diagnostic exclusion.');
+    console.log('PASS: production worker, inches-to-mm dimensions, real surface authoring and point replacement, undo/redo, independent parameters, sequence, review, validated JSON download, development-diagnostic exclusion, and reliable project recovery.');
   } finally { await browser.close(); }
 } finally { server.kill(); }
