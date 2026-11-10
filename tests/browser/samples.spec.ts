@@ -3,6 +3,46 @@ import { configureSeam, downloadJob } from '../helpers/planning-browser.ts';
 import { stageRestore } from '../helpers/recovery-browser.ts';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { analyticTriangles, asciiStl } from '../helpers/stl.ts';
+
+for (const action of ['cancel', 'upload', 'restore', 'new sample'] as const) {
+  test(`pending sample fetch is isolated when superseded by ${action}`, async ({ page }) => {
+    let release!: () => void;
+    let requested!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const started = new Promise<void>((resolve) => { requested = resolve; });
+    await page.route('**/samples/t-joint.stl', async (route) => {
+      requested();
+      await gate;
+      await route.fulfill({ path: resolve('public/samples/t-joint.stl'), contentType: 'model/stl' });
+    });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Load sample T-Joint Fillet Assembly', exact: true }).click();
+    await started;
+    await expect(page.getByRole('status')).toContainText('Downloading T-Joint');
+    const aborted = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/samples/t-joint.stl'));
+    try {
+      if (action === 'cancel') await page.getByRole('button', { name: 'Cancel import', exact: true }).click();
+      if (action === 'upload') await page.getByLabel('Import STL file').setInputFiles({ name: 'local.stl', mimeType: 'model/stl', buffer: Buffer.from(asciiStl(analyticTriangles)) });
+      if (action === 'restore') await page.getByRole('button', { name: 'Restore Plan', exact: true }).click();
+      if (action === 'new sample') await page.getByRole('button', { name: 'Load sample Gusseted Mounting Bracket', exact: true }).click();
+    } finally { release(); }
+    await aborted;
+    await expect(page.getByText('Downloading T-Joint', { exact: false })).toHaveCount(0);
+    if (action === 'upload' || action === 'new sample') {
+      const expectedName = action === 'upload' ? 'local.stl' : 'gusset-bracket.stl';
+      await expect(page.getByRole('dialog')).toContainText(expectedName);
+      await page.getByRole('button', { name: 'Confirm & open model', exact: true }).click();
+      await expect(page.locator('.workpiece-panel h2')).toHaveText(expectedName);
+    } else if (action === 'restore') {
+      await expect(page.getByRole('dialog')).toContainText('Restore');
+      await expect(page.getByRole('dialog')).not.toContainText('t-joint.stl');
+    } else {
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.locator('.statusbar')).toContainText('Import cancelled');
+    }
+  });
+}
 
 test('loads each built-in sample via 1-click experience, verifying units, dimensions and stepper state', async ({ page }) => {
   const errors: string[] = [];
@@ -146,7 +186,7 @@ test('authors weld seam on sample T-joint, applies parameters, sequences, review
   expect(errors).toEqual([]);
 });
 
-test('layout is fully usable and responsive at 1280x720 and 1440x900 without clipping', async ({ page }) => {
+test('workbench panels do not overlap or overflow at 1280x720 and 1440x900', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));
 
@@ -158,6 +198,7 @@ test('layout is fully usable and responsive at 1280x720 and 1440x900 without cli
   await expect(page.locator('.empty-split')).toBeVisible();
   await expect(page.locator('.empty-upload-card')).toBeVisible();
   await expect(page.locator('.empty-samples-card')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('welcome-1280.png') });
 
   // Load a sample
   await page.getByRole('button', { name: 'Load sample T-Joint Fillet Assembly', exact: true }).click();
@@ -170,12 +211,53 @@ test('layout is fully usable and responsive at 1280x720 and 1440x900 without cli
   await expect(page.locator('.seam-panel')).toBeVisible();
   await expect(page.locator('.workflow-stepper')).toBeVisible();
   await expect(page.locator('.statusbar')).toBeVisible();
+  async function checkPanelBounds() {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const left = await page.locator('.workpiece-panel').boundingBox();
+    const canvas = await page.locator('canvas').boundingBox();
+    const right = await page.locator('.seam-panel').boundingBox();
+    const footer = await page.locator('.statusbar').boundingBox();
+    expect(left).not.toBeNull(); expect(canvas).not.toBeNull(); expect(right).not.toBeNull(); expect(footer).not.toBeNull();
+    expect(left!.x + left!.width).toBeLessThanOrEqual(canvas!.x + 1);
+    expect(canvas!.x + canvas!.width).toBeLessThanOrEqual(right!.x + 1);
+    expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(footer!.y + 1);
+    expect(right!.x + right!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(canvas!.height).toBeGreaterThan(300);
+  }
+  await checkPanelBounds();
+  await page.screenshot({ path: info.outputPath('workbench-1280.png') });
 
   // 1440 x 900
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.locator('.workpiece-panel')).toBeVisible();
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('.seam-panel')).toBeVisible();
+  await checkPanelBounds();
+  await page.screenshot({ path: info.outputPath('workbench-1440.png') });
+
+  expect(errors).toEqual([]);
+});
+
+test('rapid sample selection and cancellation does not corrupt workspace or leave stale fetch state', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.goto('/');
+
+  // Open sample dialog via topbar
+  await page.getByRole('button', { name: 'Try Sample' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  // Cancel dialog immediately
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).not.toBeVisible();
+
+  // Load a sample via Option B card
+  await page.getByRole('button', { name: 'Load sample Gusseted Mounting Bracket', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm & open model', exact: true }).click();
+  await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
+  await expect(page.locator('.workpiece-panel h2')).toHaveText('gusset-bracket.stl');
 
   expect(errors).toEqual([]);
 });

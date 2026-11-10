@@ -56,8 +56,9 @@ export const SAMPLE_MODELS: readonly SampleModel[] = [
   },
 ] as const;
 
-export async function fetchSampleFile(sample: SampleModel): Promise<File> {
-  const response = await fetch(sample.path);
+export async function fetchSampleFile(sample: SampleModel, signal?: AbortSignal): Promise<File> {
+  const options: RequestInit = signal ? { signal } : {};
+  const response = await fetch(sample.path, options);
   if (!response.ok) {
     throw new Error(`Failed to load sample model "${sample.name}" (${response.status} ${response.statusText}).`);
   }

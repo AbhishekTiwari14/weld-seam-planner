@@ -36,7 +36,7 @@ export function SampleDialog({
       <span className="eyebrow">BUILT-IN 3D SAMPLES</span>
       <h2 id="sample-dialog-title">Select an engineering sample.</h2>
       <p>
-        Explore real weld joints immediately. These self-authored, watertight models load through the same worker and
+        Explore illustrative joint assemblies. These self-authored models load through the same worker and
         validation pipeline as uploaded STLs.
       </p>
 

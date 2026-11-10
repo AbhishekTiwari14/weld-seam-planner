@@ -5,6 +5,7 @@ export interface WorkflowStepperProps {
   hasSelectedSeam: boolean;
   allConfigured: boolean;
   isReviewing: boolean;
+  reviewBlocked: boolean;
   onOpenReview?: () => void;
   onReplaceModel?: () => void;
 }
@@ -16,6 +17,7 @@ export function WorkflowStepper({
   hasSelectedSeam,
   allConfigured,
   isReviewing,
+  reviewBlocked,
   onOpenReview,
   onReplaceModel,
 }: WorkflowStepperProps) {
@@ -73,7 +75,7 @@ export function WorkflowStepper({
     {
       num: 4,
       label: 'Sequence',
-      sub: seamCount > 1 ? `${seamCount} in order` : '1 seam',
+      sub: seamCount > 1 ? `${seamCount} in order` : seamCount === 1 ? '1 seam' : 'Pending',
       state: step4State,
       clickable: false,
       title: 'Adjust execution order with sequence buttons',
@@ -81,7 +83,7 @@ export function WorkflowStepper({
     {
       num: 5,
       label: 'Review & Export',
-      sub: isReviewing ? 'Reviewing…' : allConfigured ? 'Ready to export' : 'Requires targets',
+      sub: reviewBlocked ? 'Finish pending edit' : isReviewing ? 'Reviewing…' : allConfigured ? 'Ready for review' : 'Requires targets',
       state: step5State,
       clickable: allConfigured && Boolean(onOpenReview),
       action: onOpenReview,
@@ -103,7 +105,9 @@ export function WorkflowStepper({
                 type="button"
                 className="stepper-button"
                 onClick={step.action}
+                disabled={step.num === 5 && reviewBlocked}
                 title={step.title}
+                aria-current={step.state === 'active' ? 'step' : undefined}
                 aria-label={`Step ${step.num}: ${step.label} (${step.sub})`}
               >
                 <span className="stepper-number">{step.state === 'completed' ? '✓' : step.num}</span>

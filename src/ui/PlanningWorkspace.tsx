@@ -23,6 +23,7 @@ export function PlanningWorkspace({
   onDraftingChange,
   onReviewingChange,
   onSelectedSeamChange,
+  onReviewBlockedChange,
   reviewRequest = 0,
 }: {
   active: ActiveWorkpiece;
@@ -32,6 +33,7 @@ export function PlanningWorkspace({
   onDraftingChange?: ((drafting: boolean) => void) | undefined;
   onReviewingChange?: ((reviewing: boolean) => void) | undefined;
   onSelectedSeamChange?: ((hasSelected: boolean) => void) | undefined;
+  onReviewBlockedChange?: ((blocked: boolean) => void) | undefined;
   reviewRequest?: number | undefined;
 }) {
   const { asset, document } = active;
@@ -62,11 +64,16 @@ export function PlanningWorkspace({
   }, [selectedId, onSelectedSeamChange]);
 
   useEffect(() => {
+    onReviewBlockedChange?.(parameterDirty || surfaceEdit !== null);
+  }, [parameterDirty, surfaceEdit, onReviewBlockedChange]);
+
+  useEffect(() => {
     if (reviewRequest > prevReviewReq.current) {
-      setReviewing(true);
+      // External navigation must respect the same uncommitted-edit guards as the inspector.
+      if (!parameterDirty && !surfaceEdit) setReviewing(true);
     }
     prevReviewReq.current = reviewRequest;
-  }, [reviewRequest]);
+  }, [reviewRequest, parameterDirty, surfaceEdit]);
   // Preserve the renderer/camera owner across imports; reset only editor state before paint.
   useLayoutEffect(() => {
     setDraft(null); setSelectedId(null); setError(null); setParameterDirty(false); setReviewing(false);

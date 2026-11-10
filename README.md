@@ -8,7 +8,7 @@ The system allows welding engineers and robotic technicians to import arbitrary 
 
 ## Live Demo & Deployment
 
-> **Deployment Status**: Production-ready client-side Single Page Application (SPA). Zero backend, zero database, and zero external runtime dependencies.
+> **Deployment Status**: Client-side Single Page Application (SPA), awaiting release review. No backend or database; application dependencies are bundled locally.
 >
 > **Live Demo URL**: *Pending production release approval (see [Vercel Deployment Guide](#vercel-deployment-guide) below)*.
 
@@ -19,13 +19,13 @@ The system allows welding engineers and robotic technicians to import arbitrary 
 1. **Weld Plan vs. Robot Program**:
    This application authors an authoritative **Weld Plan** in workpiece coordinate space ($\text{mm}$). It intentionally does **not** generate executable robot trajectories or claim unverified reachability for snake-like arms. Upfront separation of concerns guarantees that downstream robot controllers receive clean, unpolluted geometric and process data without undocumented kinematic approximations.
 2. **Double-Precision Coordinate Architecture**:
-   All positions, normals, and path measurements are maintained in IEEE 754 Float64 precision within the domain core. Rendering transformations (centering, scaling) are completely decoupled from workpiece coordinates.
+   Authoritative source positions and planning measurements use JavaScript double precision. Display positions and normals use Float32 buffers. Rendering transforms (centering, scaling) are separate from workpiece coordinates; binary STL precision remains limited by its source Float32 values.
 3. **Worker-Driven BVH Surface Picking**:
-   Heavy binary/ASCII STL parsing, bounds analysis, and SHA-256 fingerprinting execute in a cancellable Web Worker. Raycasting uses bounding volume hierarchies (`three-mesh-bvh`) to maintain 60 FPS surface picking on complex industrial meshes.
+   Binary/ASCII STL parsing, bounds analysis, and SHA-256 fingerprinting execute in a cancellable Web Worker. Meshes with at least 50,000 displayed triangles use a serialized BVH (`three-mesh-bvh`) for picking. Responsiveness depends on hardware and mesh structure; see the measured [import performance evidence](docs/milestone-2-verification.md).
 4. **Verified Cryptographic Project Recovery**:
    Projects can be restored without cloud storage or user accounts. Re-uploading the original STL alongside an exported `weld-job.v1.json` verifies SHA-256 digests, units, bounding boxes, schema integrity, and point identities before restoring the session.
 5. **Deterministic Canonical Serialization**:
-   Exports produce identical JSON bytes across runs via canonical key ordering, lexicographically sorted seam definitions, and strict numeric formatting, ensuring clean version control diffs.
+   The same committed plan produces identical JSON bytes via fixed key ordering and ID-sorted seam definitions. Coordinates are serialized without additional rounding; independently created plans have different UUIDs.
 
 ---
 
@@ -47,10 +47,10 @@ npm ci
 # Start the Vite development server
 npm run dev
 ```
-Open `http://localhost:5173` in a modern browser (Chrome, Chromium, Edge, Firefox, or Safari).
+Open `http://localhost:5173` in Chrome or Chromium. Automated acceptance coverage uses real Chromium-family browsers; Firefox and Safari have not been verified.
 
 ### Downstream Consumer Inspection
-Verify how an external robotic controller or process pipeline reads and validates the exported plan:
+Verify how an external robotic controller or process pipeline reads and validates the exported plan using the production validation engine:
 ```bash
 # Inspect the checked-in canonical fixture
 npm run inspect:fixture
@@ -70,15 +70,16 @@ The application guides the engineer through five structured, reactive stages:
 ```
 
 ### 1. Import Workpiece
-- **Upload STL**: Drag and drop or browse for any binary or ASCII STL (e.g. up to 100 MB+).
+- **Upload STL**: Drag and drop or browse for standard binary or ASCII STL. The tested acceptance envelope is 500,000 triangles / 50 MiB. Larger files are best effort, subject to hard safety limits of 750,000 triangles / 64 MiB and the existing import deadline.
 - **Or Try a Sample**: Choose one of three built-in engineering assemblies:
-  - **T-Joint Assembly** ($120 \times 150 \times 80\text{ mm}$): Perpendicular plates forming standard fillet weld joints.
-  - **Gusset Bracket Assembly** ($100 \times 120 \times 120\text{ mm}$): Multi-plate structural bracket with corner gussets.
-  - **Pipe-on-Plate Assembly** ($150 \times 150 \times 90\text{ mm}$): Cylindrical saddle joint for curved path evaluation.
+  - **T-Joint Assembly** ($120 \times 150 \times 80\text{ mm}$, 24 triangles): Horizontal base plate ($120 \times 150 \times 10\text{ mm}$) and vertical web plate ($10 \times 130 \times 70\text{ mm}$, $Z \in [10, 80]$). Forms twin $130\text{ mm}$ longitudinal fillet weld joints.
+  - **Gusset Bracket Assembly** ($100 \times 120 \times 120\text{ mm}$, 32 triangles): Vertical backplate ($100 \times 15 \times 120\text{ mm}$), base flange ($100 \times 105 \times 15\text{ mm}$), and triangular stiffener gusset ($10\text{ mm}$ thick with $90\text{ mm}$ legs along $Y$ and $Z$).
+  - **Pipe-on-Plate Assembly** ($150 \times 150 \times 90\text{ mm}$, 300 triangles): Square base plate ($150 \times 150 \times 15\text{ mm}$) with hollow cylindrical pipe ($\text{OD} = 70\text{ mm}$, $\text{ID} = 50\text{ mm}$, wall thickness $10\text{ mm}$, height $75\text{ mm}$, 36 radial segments) for circumferential path planning.
+  - *Topology note*: Sample models are programmatically generated multi-body contact assemblies with touching coplanar faces at component interfaces; they are structured engineering parts, not certified single-boundary watertight manifolds.
 - **Unit Confirmation**: Inspect source units (`mm`, `cm`, `m`, `in`) against physical dimensions. The geometry is automatically normalized to millimetres.
 
 ### 2. Define Seams
-- Click **Add seam** (or press shortcut).
+- Click **Add seam**.
 - Click two or more surface points on the 3D model. Raycasting snaps directly to triangular mesh faces.
 - Press **Enter** or click **Finish seam** to commit the seam.
 - **Precision Point Editing**: Select any point or segment in the side panel to replace, insert, or delete points. Reverse direction flips the path traversal.
@@ -86,9 +87,9 @@ The application guides the engineer through five structured, reactive stages:
 
 ### 3. Configure Parameters
 - Select any seam to inspect its ordered points and set welding targets:
-  - **Travel Speed** ($v$ in $\text{mm/s}$)
-  - **Current Target** ($I$ in $\text{A}$)
-  - **Voltage Target** ($U$ in $\text{V}$)
+  - **Travel Speed** ($v$ in $\text{mm/s}$, $> 0$)
+  - **Current Target** ($I$ in $\text{A}$, $> 0$)
+  - **Voltage Target** ($U$ in $\text{V}$, $> 0$)
 - Click **Apply parameters** to validate and commit process values.
 
 ### 4. Sequence Execution
@@ -100,7 +101,7 @@ The application guides the engineer through five structured, reactive stages:
   - `SHORT_SEGMENT`: Micro-segments $< 1\text{ mm}$ that risk torch dwell burn-through.
   - `TURN_ANGLE_HIGH`: Sharp corners $> 45^\circ$ where continuous robotic welding may falter without pause/re-orientation.
   - `DEGENERATE_TRIANGLES_OMITTED`: Source STL mesh defect tracking.
-- **Interactive Navigation**: Click any warning to frame the camera (`F`) directly on the affected geometry or highlight the parameter input.
+- **Interactive Navigation**: Click a geometry warning to select and highlight its point or segment. Use **Focus selection** to frame it. Parameter findings focus the relevant input.
 - **Export**: Generates and downloads the schema-compliant `weld-job.v1.json`.
 - **Restore Plan**: Re-load the original STL and JSON to reconstruct the entire plan state offline.
 
@@ -111,26 +112,26 @@ The application guides the engineer through five structured, reactive stages:
 Follow this script to reproduce the core workflow in under 3 minutes:
 
 1. **Launch & Sample Selection (0:00–0:30)**:
-   - Open the application. On the clean welcome screen, click **Try a 3D sample**.
-   - Select the **T-joint assembly** ($120 \times 150 \times 80\text{ mm}$).
-   - Notice the instant worker import, SHA-256 calculation, and 3D viewport rendering.
-   - Use viewport controls: Orbit (Left-drag), Pan (Right-drag), Zoom (Wheel), Frame (`F`).
+   - Open the application. On the clean welcome screen, click **Load sample** on the **T-Joint Fillet Assembly** card.
+   - Confirm unit `mm` in the import dialog and click **Confirm & open model**.
+   - Inspect the worker import, SHA-256 provenance, and 3D viewport rendering.
+   - Use viewport controls: Orbit (Left-drag), Pan (Right-drag), Zoom (Wheel), Frame (`F`), Reset (`Home`).
 2. **Authoring Seams (0:30–1:15)**:
    - Click **Add seam**.
-   - Click along the fillet intersection between the vertical web and horizontal base: point 1 at $X=-50, Y=0, Z=10$, point 2 at $X=50, Y=0, Z=10$.
-   - Press **Enter** to finish the seam. Seam 1 appears in the panel with calculated path length ($100.000\text{ mm}$).
-   - Add a second seam on the opposite side fillet.
+   - Click along the longitudinal fillet junction between the vertical web and horizontal base: point 1 at $X=5, Y=-50, Z=10$, point 2 at $X=5, Y=50, Z=10$.
+   - Press **Enter** to finish the seam. These are illustrative target locations: manual clicks are approximate, with no numeric point entry or edge snapping. Inspect the actual coordinates and measured length rather than expecting exactly 100 mm.
+   - Click **Add seam** again and author a second seam along the opposite fillet ($X=-5, Z=10$).
 3. **Process Configuration & Sequencing (1:15–1:50)**:
-   - Select Seam 1. Notice the guidance banner: *"Parameters needed for export"*.
+   - Select Seam 1. Notice the parameter guidance banner. The following numbers are demonstration inputs only, not a welding procedure or recommended settings.
    - Enter Travel Speed: `8` mm/s, Current: `140` A, Voltage: `23` V. Click **Apply parameters**.
    - Select Seam 2. Enter Speed: `10` mm/s, Current: `160` A, Voltage: `24` V. Click **Apply parameters**.
    - In the Execution Sequence panel, click **Move Up** on Seam 2 to prioritize it first.
 4. **Engineering Review & Warning Navigation (1:50–2:20)**:
-   - Click **Review & Export**.
-   - In the review pane, examine the warnings and unassessed downstream criteria.
-   - If a short segment or sharp turn is introduced, click the warning card to verify the viewport automatically frames the exact problem point.
+   - Click **Review & Export** in the seam-panel footer (or step 5 in the workflow bar).
+   - In the review dialog, examine the warnings and unassessed downstream criteria.
+   - If a short segment or sharp turn is present, click the warning to highlight the affected geometry, then use **Focus selection** if needed.
 5. **JSON Export & Recovery Verification (2:20–3:00)**:
-   - Click **Export weld-job JSON**. The browser downloads the validated `weld-job.v1.json`.
+   - Click **Download weld job**. The browser downloads the validated `.weld-job.v1.json` plan. Keep `public/samples/t-joint.stl` alongside it; the JSON does not contain the STL.
    - Run the downstream inspector in your terminal: `node examples/inspect-weld-job.ts path/to/downloaded.json`.
    - In the application, click **Restore Plan** in the topbar, provide `t-joint.stl` and the downloaded JSON, and confirm restoration. The entire project state is recovered.
 
@@ -146,26 +147,26 @@ The export format is strictly governed by JSON Schema 2020-12 at [`schemas/weld-
 | :--- | :--- | :--- |
 | `schemaVersion` | `string` | Exact contract version (`"1.0.0"`). Unsupported versions are rejected. |
 | `kind` | `string` | `"weld-plan"`. Identifies the document as an engineering plan, not executable machine code. |
-| `jobId` | `string` (UUID v4) | Unique identifier for this planning session. |
-| `revision` | `integer` | Monotonically increasing revision counter of committed document changes. |
+| `jobId` | `string` (UUID) | Unique identifier for this planning session (RFC 4122 / RFC 9562 versions 1–8, nil, or max UUID). |
+| `revision` | `integer` | Monotonically increasing revision counter of committed document changes ($\ge 0$). |
 | `workpiece` | `object` | Source provenance, coordinate frame definition, and bounding box. |
 | `processProfile` | `string` | Process profile identifier (`"generic-arc-targets-v1"`). Targets only; not certified procedure. |
-| `seams` | `array` | List of defined weld seams, lexicographically sorted by `id`. |
-| `sequence` | `array<string>` | Ordered array of seam UUIDs defining the planned robotic execution order. |
+| `seams` | `array` | List of defined weld seams, lexicographically sorted by `id` ($1..100$ items). |
+| `sequence` | `array<string>` | Ordered array of seam UUIDs defining the planned robotic execution order. Exact permutation of seam IDs. |
 | `review` | `object` | Recomputed heuristic review warnings and explicitly unassessed robotic criteria. |
 
 ### Workpiece Object (`workpiece`)
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `workpiece.id` | `string` (UUID v4) | Unique identifier for the workpiece instance. |
-| `workpiece.source.filename` | `string` | Cleaned base filename of the imported STL (1–255 characters). |
-| `workpiece.source.byteLength` | `integer` | Exact file size in bytes of the original STL file. |
-| `workpiece.source.sha256` | `string` | 64-character lowercase hexadecimal SHA-256 hash of the original STL bytes. |
+| `workpiece.id` | `string` (UUID) | Unique identifier for the workpiece instance (RFC 4122 / RFC 9562 versions 1–8, nil, or max UUID). |
+| `workpiece.source.filename` | `string` | Original validated base filename (1–255 characters, no path separators or control characters). Invalid source names are rejected. |
+| `workpiece.source.byteLength` | `integer` | Exact file size in bytes of the original STL file ($\ge 1$). |
+| `workpiece.source.sha256` | `string` | 64-character lowercase hexadecimal SHA-256 digest of original STL bytes. Captures source provenance; verifying an external STL requires independently computing its SHA-256 digest. |
 | `workpiece.source.encoding` | `string` | Format encoding: `"binary"` or `"ascii"`. |
 | `workpiece.source.unit` | `string` | User-confirmed original source unit: `"mm"`, `"cm"`, `"m"`, or `"in"`. |
-| `workpiece.source.inputTriangles` | `integer` | Count of triangles parsed from the source STL. |
-| `workpiece.source.omittedDegenerateTriangles` | `integer` | Count of collapsed/zero-area triangles filtered during import. |
+| `workpiece.source.inputTriangles` | `integer` | Count of triangles parsed from the source STL ($\ge 1$). |
+| `workpiece.source.omittedDegenerateTriangles` | `integer` | Count of collapsed/zero-area triangles filtered during import ($\ge 0$). |
 | `workpiece.frame.id` | `string` | Coordinate frame reference: `"workpiece"`. |
 | `workpiece.frame.lengthUnit` | `string` | Normalized unit for all downstream coordinates: `"mm"`. |
 | `workpiece.frame.axes` | `string` | Axis convention: `"source_xyz"`. Matches source STL orientation. |
@@ -178,11 +179,11 @@ The export format is strictly governed by JSON Schema 2020-12 at [`schemas/weld-
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `string` (UUID v4) | Unique identifier for the seam. |
-| `name` | `string` | Non-empty display label (max 80 characters). |
-| `geometry.type` | `string` | `"polyline"`. Represents piecewise linear surface chords. |
+| `id` | `string` (UUID) | Unique identifier for the seam (RFC 4122 / RFC 9562 versions 1–8, nil, or max UUID). |
+| `name` | `string` | Non-empty display label (1–80 characters). |
+| `geometry.type` | `string` | `"polyline"`. Straight chords between ordered points; surface conformance is not established. |
 | `geometry.points` | `array` | Ordered list of 2 to 1,000 vertices defining the weld path. Array order is weld direction. |
-| `geometry.points[].id` | `string` (UUID v4) | Stable point identifier. Preserved across reversals and replacements. |
+| `geometry.points[].id` | `string` (UUID) | Stable point identifier. Preserved across reversals and replacements. |
 | `geometry.points[].positionMm` | `[number, number, number]` | Finite $[X, Y, Z]$ coordinates in the workpiece frame ($\text{mm}$). |
 | `parameters.travelSpeedMmPerS` | `number` | Requested torch travel speed in $\text{mm/s}$ ($> 0$). |
 | `parameters.currentTargetA` | `number` | Requested arc current target in amperes ($> 0$). |
@@ -193,13 +194,16 @@ The export format is strictly governed by JSON Schema 2020-12 at [`schemas/weld-
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `review.rulesetVersion` | `string` | Ruleset version (`"1.0.0"`). Decoupled from structural schema version. |
-| `review.warnings` | `array` | Heuristic findings (`SHORT_SEGMENT`, `TURN_ANGLE_HIGH`, `DEGENERATE_TRIANGLES_OMITTED`). |
-| `review.warnings[].code` | `string` | Machine-readable finding code. |
-| `review.warnings[].seamId` | `string` (optional) | Associated seam UUID for path warnings. |
-| `review.warnings[].pointId` | `string` (optional) | Associated vertex UUID for angle warnings. |
-| `review.warnings[].valueMm` | `number` (optional) | Measured segment length for short segment warnings. |
-| `review.warnings[].valueDeg` | `number` (optional) | Measured turn angle in degrees for direction changes. |
-| `review.notAssessed` | `array<string>` | Explicit list of robot execution responsibilities that this plan does **not** certify. |
+| `review.warnings` | `array` | Recomputed heuristic findings (max 20,000 items). Discriminated by `code`. |
+| `review.warnings[].code` | `string` | Finding code: `"TURN_ANGLE_HIGH"`, `"SHORT_SEGMENT"`, or `"DEGENERATE_TRIANGLES_OMITTED"`. |
+| `review.warnings[].seamId` | `string` (UUID) | Seam UUID where the warning occurs (required for `TURN_ANGLE_HIGH` and `SHORT_SEGMENT`). |
+| `review.warnings[].pointId` | `string` (UUID) | Vertex UUID at which direction turn angle exceeds threshold (required for `TURN_ANGLE_HIGH`). |
+| `review.warnings[].startPointId` | `string` (UUID) | Starting vertex UUID of the short segment (required for `SHORT_SEGMENT`). |
+| `review.warnings[].endPointId` | `string` (UUID) | Ending vertex UUID of the short segment (required for `SHORT_SEGMENT`). |
+| `review.warnings[].valueMm` | `number` | Measured segment chord length in millimetres (required for `SHORT_SEGMENT`, $> 0$). |
+| `review.warnings[].valueDeg` | `number` | Measured direction change angle in degrees (required for `TURN_ANGLE_HIGH`, $0 \le \theta \le 180$). |
+| `review.warnings[].count` | `integer` | Count of omitted degenerate triangles (required for `DEGENERATE_TRIANGLES_OMITTED`, $\ge 1$). |
+| `review.notAssessed` | `array<string>` | Fixed 8-element list of explicit robot execution responsibilities not certified by this plan. |
 
 #### Explicit Downstream Exclusions (`review.notAssessed`)
 The export explicitly documents that downstream robot control software must provide:
@@ -216,10 +220,14 @@ The export explicitly documents that downstream robot control software must prov
 
 ## Downstream Consumer Example
 
-A lightweight, zero-dependency Node.js script is included in [`examples/inspect-weld-job.ts`](examples/inspect-weld-job.ts) demonstrating how downstream systems parse, validate, and walk the plan:
+A Node.js consumer example is included in [`examples/inspect-weld-job.ts`](examples/inspect-weld-job.ts). Run it from this installed repository: it imports the production `validateWeldJob()` validator for structural and semantic checks, including warning derivations. It does not independently hash an STL or establish robot feasibility. Printed coordinates are rounded for readability; the returned job retains exact saved values.
 
 ```bash
-node examples/inspect-weld-job.ts fixtures/weld-job.v1.json
+# Run inspector against fixture
+npm run inspect:fixture
+
+# Or inspect any exported weld-job JSON
+node examples/inspect-weld-job.ts path/to/your.weld-job.v1.json
 ```
 
 **Output snippet:**
@@ -233,13 +241,15 @@ File: .../fixtures/weld-job.v1.json
     Job ID:       00000000-0000-4000-8000-000000000001
     Revision:     0
     Schema:       v1.0.0
+    Kind:         weld-plan
 
 [2] WORKPIECE PROVENANCE & COORDINATE SYSTEM
-    Original STL: sample-block.stl (684 bytes)
+    Original STL: sample-block.stl (684 bytes, binary)
     SHA-256:      aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    Source Unit:  mm
-    Triangles:    12
-    Frame Axes:   source_xyz (authoritative millimetres)
+                  (Recorded provenance digest; does not verify local STL bytes unless the file is hashed independently.)
+    Source Unit:  mm (normalized to mm in export)
+    Triangles:    12 (0 degenerate omitted)
+    Frame Axes:   source_xyz (authoritative millimetres, right-handed)
     Bounds (mm):  X [0, 100], Y [0, 100], Z [0, 100]
 
 [3] PROCESS PROFILE
@@ -259,7 +269,7 @@ File: .../fixtures/weld-job.v1.json
 
 ## Vercel Deployment Guide
 
-The application is fully architected for zero-configuration, static SPA deployment on Vercel:
+The application is structured for zero-configuration, client-side SPA deployment on Vercel:
 
 1. **Deploying via Vercel CLI**:
    ```bash
@@ -276,13 +286,13 @@ The application is fully architected for zero-configuration, static SPA deployme
    - Push repository to GitHub.
    - Import the project into the [Vercel Dashboard](https://vercel.com/new).
    - Preset: **Vite**.
-   - Build Command: `npm run build` (or `tsc --noEmit && vite build`).
+   - Build Command: `npm run build` (runs `tsc --noEmit && vite build`).
    - Output Directory: `dist`.
-   - Routing: Pre-configured via [`vercel.json`](vercel.json) rewrite `/* -> /index.html` for client-side SPA routing.
-3. **Verification in Production**:
-   - Web Worker (`stl.worker.ts`) is bundled cleanly into static assets without external runtime dependencies.
-   - Built-in 3D samples in `/public/samples/` are served with deterministic cache headers.
-   - Diagnostic debug endpoints (`?inspect=1`) are automatically stripped from production builds.
+   - Routing: [`vercel.json`](vercel.json) rewrites fallback requests to `/` with `cleanUrls: true`, avoiding an `.html` destination as required by [Vercel's Vite guidance](https://vercel.com/docs/frameworks/frontend/vite). Hosting behavior still requires a future authorized deployment check.
+3. **Production Characteristics**:
+   - Web Worker (`import.worker.ts`) is bundled cleanly into static assets without external runtime dependencies.
+   - Built-in 3D samples in `/public/samples/` are copied to `dist/samples/` and served as static assets.
+   - Diagnostic debug endpoints (`?inspect=1`) are excluded from production builds.
 
 ---
 
@@ -294,13 +304,13 @@ The codebase enforces strict, reproducible verification gates:
 # Strict TypeScript compilation without emissions
 npm run typecheck
 
-# 181 unit & integration tests covering pure domain logic, recovery, and sample generation
+# 193 unit & integration tests covering domain logic, recovery, samples, and consumer validation
 npm test
 
 # Production build bundle verification
 npm run build
 
-# 23 end-to-end browser tests in real headless Chromium (viewport picking, UI, samples, recovery)
+# 29 end-to-end browser tests in real headless Chromium (viewport picking, UI, samples, recovery)
 npm run test:browser
 
 # Production smoke test against a live preview server
@@ -312,19 +322,31 @@ git diff --exit-code -- schemas fixtures
 ```
 
 ### Complete Test Coverage Summary
-- **181 Unit & Integration Tests**:
-  - `tests/samples.test.ts`: Sample generation, physical bounds, worker parsing pipeline, and plan recovery.
-  - `tests/recovery.test.ts`: Full offline plan recovery, SHA-256 fingerprint verification, mismatch rejection.
-  - `tests/review.test.ts`: Heuristic rule checks (`SHORT_SEGMENT`, `TURN_ANGLE_HIGH`, `DEGENERATE_TRIANGLES_OMITTED`).
-  - `tests/contracts.test.ts` & `tests/schema.test.ts`: Zod schema enforcement and independent Ajv validation against JSON Schema 2020-12.
-  - `tests/history.test.ts`: Undo/redo state limits and snapshot memory constraints.
-  - `tests/domain.test.ts`: Vector math, polyline lengths, turn angle calculations, Float64 numerical stability.
-- **23 Browser End-to-End Tests**:
-  - `tests/browser/samples.spec.ts`: Sample loading, 5-step stepper synchronization, seam creation on T-joint, JSON export, and recovery. Responsive layout checks at 1280x720 and 1440x900.
+- **193 Unit & Integration Tests**:
+  - `tests/export.test.ts`: Serialization, Zod schema validation, independent Ajv validation against JSON Schema 2020-12, fixture roundtrips.
+  - `tests/validation.test.ts`: Planning document invariants, bounds checking, sequence validation.
+  - `tests/geometry.test.ts`: Double-precision Float64 vector math, segment distances, turn angle measurements.
+  - `tests/history.test.ts`: 50-revision bounded undo/redo stacks, 16 MiB history quota enforcement.
+  - `tests/recovery.test.ts`: Cryptographic SHA-256 verification, unit locking, asset activation, mismatch rejection.
+  - `tests/samples.test.ts`: Programmatic sample generation, physical bounds, checked-in byte reproducibility, production parsing, and abort signals.
+  - `tests/inspect-weld-job.test.ts`: Downstream consumer verification, rejection of malformed JSON, duplicate sequence entries, invalid parameter values.
+  - `tests/point-editing.test.ts`: Precision point replacement, insertion, removal, direction reversal.
+  - `tests/planning-operations.test.ts`: Immutable planning document modifications, seam addition, reversal, reordering.
+  - `tests/limits.test.ts`: Boundary condition scaling (100 seams, 10,000 points).
+  - `tests/import.test.ts`: Binary/ASCII STL parsing, degenerate triangle omission, safety caps. Import reads the complete file buffer; it is not a streaming parser.
+  - `tests/acceleration.test.ts`: Bounding Volume Hierarchy (`three-mesh-bvh`) buffer transfer and raycasting.
+  - `tests/review.test.ts`: Heuristic review grouping and viewport navigation targets.
+  - `tests/picking.test.ts`: Authoritative surface picking on meshes.
+  - `tests/render-timer.test.ts`: Frame rendering metrics.
+  - `tests/candidates.test.ts`: Candidate seam conversion.
+  - `tests/stl-precision.test.ts`: High-precision large-offset coordinates.
+- **29 Browser End-to-End Tests**:
+  - `tests/browser/samples.spec.ts`: Sample loading, 5-step stepper synchronization, seam creation on T-joint, JSON export, recovery, responsive layout at 1280x720 and 1440x900, and rapid selection/cancellation isolation.
   - `tests/browser/recovery.spec.ts`: End-to-end browser verification of plan recovery from STL + JSON.
-  - `tests/browser/review.spec.ts`: Warning navigation, review grouping, and viewport focus framing.
+  - Review grouping, warning navigation and focus are covered within `recovery.spec.ts` and `editor.spec.ts`.
   - `tests/browser/editor.spec.ts`: Direct surface picking, point replacement, insertion, deletion, and reversal.
   - `tests/browser/planning.spec.ts`: Workflow from STL import to parameter assignment and JSON download.
+  - `tests/browser/viewer.spec.ts`: Real rendering, source units, surface hit, camera gestures, replacement readiness.
 
 ---
 

@@ -1,5 +1,6 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { SAMPLE_MODELS } from '../src/samples/manifest.ts';
+import { SAMPLE_MODELS, fetchSampleFile } from '../src/samples/manifest.ts';
 import { generateGussetBracket, generatePipeOnPlate, generateTJoint } from '../scripts/generate-samples.ts';
 import { testId } from './helpers.ts';
 import { commitDraft } from '../src/planning/draft.ts';
@@ -9,7 +10,7 @@ import { activateRestoredPlan, parseSavedPlan, verifyRestoreSource } from '../sr
 import { createImportController } from '../src/import/store.ts';
 import { parseStl } from '../src/import/parse-stl.ts';
 import { prepareAsset } from '../src/import/prepare-asset.ts';
-import type { ImportPreview } from '../src/import/types.ts';
+import type { ImportPreview, WorkerResponse } from '../src/import/types.ts';
 
 function parseStlBounds(buffer: Buffer) {
   const count = buffer.readUInt32LE(80);
@@ -51,7 +52,7 @@ describe('sample model generation and manifest integrity', () => {
     }
   });
 
-  it('generates valid, watertight T-Joint assembly with correct dimensions', () => {
+  it('generates valid binary STL T-Joint assembly with correct dimensions and triangle count', () => {
     const buf = generateTJoint();
     expect(buf.byteLength).toBe(1284);
     const parsed = parseStlBounds(buf);
@@ -63,7 +64,7 @@ describe('sample model generation and manifest integrity', () => {
     expect(parsed.max[2]).toBeCloseTo(80, 2);
   });
 
-  it('generates valid Gusset Bracket assembly with correct dimensions and features', () => {
+  it('generates valid binary STL Gusset Bracket assembly with correct dimensions and features', () => {
     const buf = generateGussetBracket();
     expect(buf.byteLength).toBe(1684);
     const parsed = parseStlBounds(buf);
@@ -75,7 +76,7 @@ describe('sample model generation and manifest integrity', () => {
     expect(parsed.max[1]).toBeCloseTo(105, 2);
   });
 
-  it('generates valid Pipe-on-Plate assembly with radial discretization and correct dimensions', () => {
+  it('generates valid binary STL Pipe-on-Plate assembly with radial discretization and correct dimensions', () => {
     const buf = generatePipeOnPlate();
     expect(buf.byteLength).toBe(15084);
     const parsed = parseStlBounds(buf);
@@ -83,6 +84,23 @@ describe('sample model generation and manifest integrity', () => {
     expect(parsed.dimensions[0]).toBeCloseTo(150, 2);
     expect(parsed.dimensions[1]).toBeCloseTo(150, 2);
     expect(parsed.dimensions[2]).toBeCloseTo(90, 2);
+  });
+
+  it('fetchSampleFile respects AbortSignal and aborts requests immediately', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const sample = { ...SAMPLE_MODELS[0]!, path: 'http://localhost:5173/samples/t-joint.stl' };
+    await expect(fetchSampleFile(sample, ac.signal)).rejects.toThrow(/abort/i);
+  });
+
+  it.each(SAMPLE_MODELS)('ships reproducible $id bytes matching the manifest and production parser', async (sample) => {
+    const generators = { 't-joint': generateTJoint, 'gusset-bracket': generateGussetBracket, 'pipe-on-plate': generatePipeOnPlate };
+    const bytes = await readFile(`public${sample.path}`);
+    expect(bytes).toEqual(generators[sample.id as keyof typeof generators]());
+    const parsed = parseStl(new Uint8Array(bytes).buffer);
+    expect(parsed.inputTriangles).toBe(sample.triangles);
+    expect(parsed.omittedDegenerateTriangles).toBe(0);
+    expect(parsed.bounds.max.map((value, i) => value - parsed.bounds.min[i]!)).toEqual(sample.dimensionsMm);
   });
 });
 
@@ -92,7 +110,7 @@ describe('sample workpiece planning and recovery pipeline', () => {
     const tBytes = new Uint8Array(tBuf);
     const tFile = new File([tBytes], 't-joint.stl');
 
-    const receivers: ((message: any) => void)[] = [];
+    const receivers: ((message: WorkerResponse) => void)[] = [];
     const controller = createImportController(() => ({
       send() {},
       stop() {},

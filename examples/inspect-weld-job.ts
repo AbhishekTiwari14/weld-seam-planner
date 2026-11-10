@@ -2,7 +2,8 @@
  * Standalone Downstream Consumer Example
  *
  * Demonstrates how an external system or robotic pipeline reads, validates,
- * and interprets an Armatrix weld-job JSON export.
+ * and interprets an Armatrix weld-job JSON export using the production schema
+ * and semantic validation engine.
  *
  * Usage:
  *   node examples/inspect-weld-job.ts [path/to/exported.weld-job.v1.json]
@@ -11,135 +12,73 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-interface Vec3Mm {
-  0: number;
-  1: number;
-  2: number;
-}
-
-interface PathPoint {
-  id: string;
-  positionMm: [number, number, number];
-}
-
-interface WeldSeam {
-  id: string;
-  name: string;
-  geometry: {
-    type: string;
-    points: PathPoint[];
-  };
-  parameters: {
-    travelSpeedMmPerS: number;
-    currentTargetA: number;
-    voltageTargetV: number;
-  };
-}
-
-interface WeldJobExport {
-  schemaVersion: string;
-  kind?: string;
-  jobId: string;
-  revision: number;
-  workpiece: {
-    id: string;
-    source: {
-      filename: string;
-      sha256: string;
-      unit: string;
-      byteLength: number;
-      inputTriangles: number;
-      encoding?: string;
-      omittedDegenerateTriangles?: number;
-    };
-    boundsMm: {
-      min: [number, number, number];
-      max: [number, number, number];
-    };
-    frame: {
-      id?: string;
-      axes: string;
-      lengthUnit?: string;
-      origin?: string;
-      handedness?: string;
-    };
-  };
-  processProfile: string | {
-    id: string;
-    name?: string;
-  };
-  seams: WeldSeam[];
-  sequence: string[];
-  review: {
-    rulesetVersion?: string;
-    warnings: Array<{
-      code: string;
-      seamId?: string;
-      pointId?: string;
-      startPointId?: string;
-      endPointId?: string;
-      valueMm?: number;
-      valueDeg?: number;
-      message?: string;
-      severity?: string;
-    }>;
-    notAssessed?: string[];
-  };
-  limitations?: {
-    notAssessed?: string[];
-  };
-}
+import { pathToFileURL } from 'node:url';
+import { validateWeldJob } from '../src/export/job.ts';
+import type { WeldJob } from '../src/export/schema.ts';
 
 function distance(p1: [number, number, number], p2: [number, number, number]): number {
   return Math.hypot(p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]);
 }
 
-export function inspectWeldJob(jsonPath: string): void {
+export interface InspectOptions {
+  quiet?: boolean;
+}
+
+export function inspectWeldJob(jsonPath: string, options: InspectOptions = {}): WeldJob {
   const fullPath = resolve(jsonPath);
-  console.log(`\n===============================================================`);
-  console.log(`ARMATRIX WELD JOB INSPECTOR — DOWNSTREAM CONSUMER VERIFICATION`);
-  console.log(`===============================================================`);
-  console.log(`File: ${fullPath}`);
+  const log = options.quiet ? () => {} : console.log;
 
-  const rawText = readFileSync(fullPath, 'utf8');
-  const job = JSON.parse(rawText) as WeldJobExport;
+  log(`\n===============================================================`);
+  log(`ARMATRIX WELD JOB INSPECTOR — DOWNSTREAM CONSUMER VERIFICATION`);
+  log(`===============================================================`);
+  log(`File: ${fullPath}`);
 
-  // 1. Basic schema verification
-  if (job.schemaVersion !== '1.0.0') {
-    throw new Error(`Unsupported schema version "${job.schemaVersion}". Expected "1.0.0".`);
-  }
-  if (!job.jobId || typeof job.revision !== 'number') {
-    throw new Error('Missing job identification or revision.');
+  let rawText: string;
+  try {
+    rawText = readFileSync(fullPath, 'utf8');
+  } catch (err) {
+    throw new Error(`Failed to read file "${fullPath}": ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  console.log(`\n[1] JOB IDENTIFICATION`);
-  console.log(`    Job ID:       ${job.jobId}`);
-  console.log(`    Revision:     ${job.revision}`);
-  console.log(`    Schema:       v${job.schemaVersion}`);
+  let rawJson: unknown;
+  try {
+    rawJson = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error(`Malformed JSON input in "${fullPath}": ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Authoritative production validation: verifies Zod structural schema,
+  // coordinate bounds, unique seam IDs, sequence permutations, complete positive
+  // parameters, and heuristic review warning derivations.
+  const job: WeldJob = validateWeldJob(rawJson);
+
+  // 1. Job Identification
+  log(`\n[1] JOB IDENTIFICATION`);
+  log(`    Job ID:       ${job.jobId}`);
+  log(`    Revision:     ${job.revision}`);
+  log(`    Schema:       v${job.schemaVersion}`);
+  log(`    Kind:         ${job.kind}`);
 
   // 2. Workpiece provenance
   const wp = job.workpiece;
-  console.log(`\n[2] WORKPIECE PROVENANCE & COORDINATE SYSTEM`);
-  console.log(`    Original STL: ${wp.source.filename} (${wp.source.byteLength.toLocaleString()} bytes)`);
-  console.log(`    SHA-256:      ${wp.source.sha256}`);
-  console.log(`    Source Unit:  ${wp.source.unit}`);
-  console.log(`    Triangles:    ${wp.source.inputTriangles.toLocaleString()}`);
-  console.log(`    Frame Axes:   ${wp.frame.axes} (authoritative millimetres)`);
-  console.log(`    Bounds (mm):  X [${wp.boundsMm.min[0]}, ${wp.boundsMm.max[0]}]`);
-  console.log(`                  Y [${wp.boundsMm.min[1]}, ${wp.boundsMm.max[1]}]`);
-  console.log(`                  Z [${wp.boundsMm.min[2]}, ${wp.boundsMm.max[2]}]`);
+  log(`\n[2] WORKPIECE PROVENANCE & COORDINATE SYSTEM`);
+  log(`    Original STL: ${wp.source.filename} (${wp.source.byteLength.toLocaleString()} bytes, ${wp.source.encoding})`);
+  log(`    SHA-256:      ${wp.source.sha256}`);
+  log(`                  (Recorded provenance digest; does not verify local STL bytes unless the file is hashed independently.)`);
+  log(`    Source Unit:  ${wp.source.unit} (normalized to mm in export)`);
+  log(`    Triangles:    ${wp.source.inputTriangles.toLocaleString()} (${wp.source.omittedDegenerateTriangles} degenerate omitted)`);
+  log(`    Frame Axes:   ${wp.frame.axes} (authoritative millimetres, ${wp.frame.handedness}-handed)`);
+  log(`    Bounds (mm):  X [${wp.boundsMm.min[0]}, ${wp.boundsMm.max[0]}]`);
+  log(`                  Y [${wp.boundsMm.min[1]}, ${wp.boundsMm.max[1]}]`);
+  log(`                  Z [${wp.boundsMm.min[2]}, ${wp.boundsMm.max[2]}]`);
 
   // 3. Process Profile
-  console.log(`\n[3] PROCESS PROFILE`);
-  const profileStr = typeof job.processProfile === 'string'
-    ? job.processProfile
-    : `${job.processProfile.name || 'Generic Profile'} (ID: ${job.processProfile.id})`;
-  console.log(`    Profile:      ${profileStr}`);
+  log(`\n[3] PROCESS PROFILE`);
+  log(`    Profile:      ${job.processProfile}`);
 
   // 4. Seam Execution Sequence
-  console.log(`\n[4] EXECUTION SEQUENCE (${job.sequence.length} seam${job.sequence.length === 1 ? '' : 's'})`);
-  const seamMap = new Map<string, WeldSeam>();
+  log(`\n[4] EXECUTION SEQUENCE (${job.sequence.length} seam${job.sequence.length === 1 ? '' : 's'})`);
+  const seamMap = new Map<string, (typeof job.seams)[number]>();
   for (const seam of job.seams) {
     seamMap.set(seam.id, seam);
   }
@@ -163,46 +102,55 @@ export function inspectWeldJob(jsonPath: string): void {
     totalPlannedLengthMm += seamLengthMm;
     totalNominalArcTimeS += nominalArcTime;
 
-    console.log(`\n    [${index + 1}] SEAM: "${seam.name}" (ID: ${seam.id})`);
-    console.log(`        Parameters:  Speed: ${speed} mm/s | Current: ${seam.parameters.currentTargetA} A | Voltage: ${seam.parameters.voltageTargetV} V`);
-    console.log(`        Geometry:    ${points.length} points | Path length: ${seamLengthMm.toFixed(3)} mm | Nominal Arc-On: ${nominalArcTime.toFixed(1)} s`);
-    console.log(`        Point List (Workpiece mm):`);
+    log(`\n    [${index + 1}] SEAM: "${seam.name}" (ID: ${seam.id})`);
+    log(`        Parameters:  Speed: ${speed} mm/s | Current: ${seam.parameters.currentTargetA} A | Voltage: ${seam.parameters.voltageTargetV} V`);
+    log(`        Geometry:    ${points.length} points | Path length: ${seamLengthMm.toFixed(3)} mm | Nominal Arc-On: ${nominalArcTime.toFixed(1)} s`);
+    log(`        Point List (Workpiece mm; display rounded to 3 decimals, IDs abbreviated):`);
     points.forEach((pt, pIdx) => {
       const isStart = pIdx === 0;
       const isEnd = pIdx === points.length - 1;
       const tag = isStart ? ' [START]' : isEnd ? ' [END]' : '';
-      console.log(`          P${pIdx + 1} (${pt.id.slice(0, 8)}…): [${pt.positionMm.map((n) => n.toFixed(3).padStart(8)).join(', ')}]${tag}`);
+      log(`          P${pIdx + 1} (${pt.id.slice(0, 8)}…): [${pt.positionMm.map((n) => n.toFixed(3).padStart(8)).join(', ')}]${tag}`);
     });
   });
 
-  console.log(`\n[5] TOTAL METRICS`);
-  console.log(`    Total Planned Length:   ${totalPlannedLengthMm.toFixed(3)} mm`);
-  console.log(`    Total Nominal Arc-On:   ${totalNominalArcTimeS.toFixed(1)} s`);
-  console.log(`    (Note: Nominal arc time = length ÷ speed; excludes approach, transfer & delays.)`);
+  log(`\n[5] TOTAL METRICS`);
+  log(`    Total Planned Length:   ${totalPlannedLengthMm.toFixed(3)} mm`);
+  log(`    Total Nominal Arc-On:   ${totalNominalArcTimeS.toFixed(1)} s`);
+  log(`    (Note: Nominal arc time = length ÷ speed; excludes approach, transfer & delays.)`);
 
   // 5. Engineering Review Warnings
-  const warnings = job.review?.warnings ?? [];
-  console.log(`\n[6] ENGINEERING HEURISTIC WARNINGS (${warnings.length})`);
+  const warnings = job.review.warnings;
+  log(`\n[6] ENGINEERING HEURISTIC WARNINGS (${warnings.length})`);
   if (warnings.length === 0) {
-    console.log(`    None reported.`);
+    log(`    None reported.`);
   } else {
     warnings.forEach((w, wIdx) => {
-      const val = w.valueMm != null ? ` (${w.valueMm} mm)` : w.valueDeg != null ? ` (${w.valueDeg}°)` : '';
-      console.log(`    ${wIdx + 1}. [${w.code}]${val} ${w.message || ''}`);
+      if (w.code === 'SHORT_SEGMENT') {
+        log(`    ${wIdx + 1}. [SHORT_SEGMENT] Seam: ${w.seamId.slice(0, 8)}… Segment: ${w.startPointId.slice(0, 8)}… -> ${w.endPointId.slice(0, 8)}… (${w.valueMm.toFixed(3)} mm < 1 mm threshold)`);
+      } else if (w.code === 'TURN_ANGLE_HIGH') {
+        log(`    ${wIdx + 1}. [TURN_ANGLE_HIGH] Seam: ${w.seamId.slice(0, 8)}… Point: ${w.pointId.slice(0, 8)}… (${w.valueDeg.toFixed(1)}° > 45° threshold)`);
+      } else if (w.code === 'DEGENERATE_TRIANGLES_OMITTED') {
+        log(`    ${wIdx + 1}. [DEGENERATE_TRIANGLES_OMITTED] ${w.count} collapsed triangle(s) omitted during mesh parsing`);
+      }
     });
   }
 
   // 6. Explicit Downstream Limitations
-  const notAssessed = job.review?.notAssessed ?? job.limitations?.notAssessed ?? [];
-  console.log(`\n[7] DOWNSTREAM INTEGRATION NOTICE`);
-  console.log(`    This document defines a WELD PLAN, not an executable robot trajectory.`);
-  console.log(`    The following constraints remain downstream responsibilities:`);
+  const notAssessed = job.review.notAssessed;
+  log(`\n[7] DOWNSTREAM INTEGRATION NOTICE`);
+  log(`    This document defines a WELD PLAN, not an executable robot trajectory.`);
+  log(`    The following constraints remain downstream responsibilities:`);
   notAssessed.forEach((item) => {
-    console.log(`    - ${item}`);
+    log(`    - ${item}`);
   });
-  console.log(`\n===============================================================\n`);
+  log(`\n===============================================================\n`);
+
+  return job;
 }
 
-// Allow direct execution
-const targetFile = process.argv[2] || resolve('fixtures/weld-job.v1.json');
-inspectWeldJob(targetFile);
+// Allow direct CLI execution
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  const targetFile = process.argv[2] || resolve('fixtures/weld-job.v1.json');
+  inspectWeldJob(targetFile);
+}
