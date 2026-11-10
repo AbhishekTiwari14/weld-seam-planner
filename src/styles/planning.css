@@ -15,6 +15,15 @@
 .seam-panel-header h2 span { font-size: 12px; padding-left: 5px; color: var(--brand-revolution-green); }
 .seam-panel-header button { padding: 9px 12px; font-size: 12px; }
 .seam-panel-scroll { overflow-y: auto; min-height: 0; flex: 1; padding: 0 16px 18px; }
+.discovery-panel { padding: 16px 0; border-bottom: 1px solid var(--brand-light-sand-s2); }
+.discovery-panel .section-heading { gap: 8px; }
+.discovery-panel h3 { font-size: 13px; }
+.discovery-panel button { font-size: 11px; padding: 7px; }
+.discovery-panel p { line-height: 1.5; margin-top: 7px; overflow-wrap: anywhere; }
+.discovery-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 5px; }
+.discovery-list button { width: 100%; text-align: left; }
+.discovery-list button[aria-pressed=true] { outline: 2px solid var(--brand-revolution-green); }
+.discovery-detail { padding: 10px; background: var(--brand-light-sand-s1); font-size: 11px; }
 .seam-empty { padding: 24px 2px; }
 .seam-empty p { font-size: 12px; line-height: 1.65; color: var(--brand-revolution-green); }
 .seam-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 7px; }

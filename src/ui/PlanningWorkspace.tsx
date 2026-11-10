@@ -12,6 +12,10 @@ import { applySurfaceEdit, selectionExists, type GeometrySelection, type Surface
 import type { HistoryDirection } from '../planning/history.ts';
 import { isTextEditingTarget } from '../planning/shortcuts.ts';
 import { findingIdentity, type ReviewSnapshot } from '../planning/review.ts';
+import { createDiscoveryController } from '../candidates/discovery-controller.ts';
+import { acceptCandidate } from '../candidates/accept.ts';
+import type { SeamCandidate } from '../candidates/contracts.ts';
+import { DiscoveryPanel } from './DiscoveryPanel.tsx';
 
 const Viewport = lazy(() => import('../viewport/Viewport.tsx').then((module) => ({ default: module.Viewport })));
 
@@ -48,8 +52,19 @@ export function PlanningWorkspace({
   const [candidate, setCandidate] = useState<Vec3 | null>(null);
   const [lastReview, setLastReview] = useState<ReviewSnapshot | null>(null);
   const [parameterFocus, setParameterFocus] = useState<string | null>(null);
+  const [discovery, setDiscovery] = useState<ReturnType<typeof createDiscoveryController> | null>(null);
+  const [discoverySelection, setDiscoverySelection] = useState<SeamCandidate | null>(null);
+  const [ledger, setLedger] = useState<Record<string, string[]>>({});
+  const ledgerRef = useRef<Record<string, string[]>>({});
+  const [rejected, setRejected] = useState<Record<string, boolean>>({});
   const history = useStore(controller.store, (state) => state.history);
   const prevReviewReq = useRef(reviewRequest);
+
+  useEffect(() => {
+    const instance = createDiscoveryController(controller.store);
+    setDiscovery(instance);
+    return () => instance.dispose();
+  }, [controller]);
 
   useEffect(() => {
     onDraftingChange?.(draft !== null);
@@ -79,6 +94,7 @@ export function PlanningWorkspace({
     setDraft(null); setSelectedId(null); setError(null); setParameterDirty(false); setReviewing(false);
     setSelection(null); setSurfaceEdit(null); setCandidate(null);
     setLastReview(null); setParameterFocus(null);
+    setDiscoverySelection(null); ledgerRef.current = {}; setLedger({}); setRejected({});
   }, [asset.geometryRevision]);
   useLayoutEffect(() => {
     const selected = selectedId ? document.content.seamsById[selectedId] : undefined;
@@ -159,14 +175,33 @@ export function PlanningWorkspace({
     container.current?.querySelector<HTMLElement>('.seam-panel-scroll')?.scrollTo({ top: 0 });
     container.current?.querySelector<HTMLElement>('.viewport')?.focus();
   };
-  const planning = useMemo(() => ({ seams, selectedId, draft, selection, surfaceEdit, candidate, interactionEnabled: !parameterDirty && !reviewing,
-    onPlace: place, onSelect: select, onMiss: miss }), [seams, selectedId, draft, selection, surfaceEdit, candidate, parameterDirty, reviewing, place, select, miss]);
+  const discoveryPath = discoverySelection?.geometryRevision === asset.geometryRevision && draft === null && !surfaceEdit ? discoverySelection.path : null;
+  const planning = useMemo(() => ({ seams, selectedId, draft, selection, surfaceEdit, candidate, discoveryPath, interactionEnabled: !parameterDirty && !reviewing,
+    onPlace: place, onSelect: select, onMiss: miss }), [seams, selectedId, draft, selection, surfaceEdit, candidate, discoveryPath, parameterDirty, reviewing, place, select, miss]);
   return <div className="planning-workspace" ref={container}>
     <WorkpiecePanel asset={asset} onReplace={onReplace} onOpenSamples={onOpenSamples} />
     <Suspense fallback={<div className="viewport">Starting 3D viewport…</div>}>
       <Viewport asset={asset} planning={planning} onFinish={finish} onCancel={cancel} onRemoveLast={removeLast} />
     </Suspense>
     <SeamPanel document={document} analysis={analysis} selectedId={selectedId} draft={draft} error={error} edit={edit}
+      discoveryPanel={discovery && <DiscoveryPanel controller={discovery} document={document} selectedId={discoverySelection?.candidateId ?? null}
+        ledger={ledger} rejected={rejected} disabled={draft !== null || !!surfaceEdit || parameterDirty || reviewing}
+        onSelect={setDiscoverySelection} onStart={() => { setDiscoverySelection(null); discovery.start(); }}
+        onReject={(id, value) => setRejected((previous) => ({ ...previous, [id]: value }))}
+        onAccept={(suggestion) => {
+          if (draft !== null || surfaceEdit || parameterDirty || reviewing || rejected[suggestion.candidateId]) return;
+          const current = controller.store.getState().active;
+          if (!current || (ledgerRef.current[suggestion.candidateId] ?? []).some((id) => !!current.document.content.seamsById[id])) return;
+          let seamId: string | null = null;
+          if (edit((plan) => {
+            const accepted = acceptCandidate(plan, suggestion, { geometryRevision: asset.geometryRevision, name: `Seam ${plan.content.sequence.length + 1}` });
+            if (accepted.candidate.review.state === 'accepted') seamId = accepted.candidate.review.seamId;
+            return accepted.document;
+          }) && seamId) {
+            const next = { ...ledgerRef.current, [suggestion.candidateId]: [...(ledgerRef.current[suggestion.candidateId] ?? []), seamId] };
+            ledgerRef.current = next; setLedger(next); setSelectedId(seamId); setSelection(null);
+          }
+        }} />}
       selection={selection} surfaceEdit={surfaceEdit} candidate={candidate} history={history} onHistory={travel} onSelectGeometry={selectGeometry}
       onReplacePoint={(pointId) => { if (selectedId) begin({ kind: 'replace', seamId: selectedId, pointId, workpieceId: asset.workpiece.id, revision: document.revision }); }}
       onInsertPoint={(startPointId, endPointId) => { if (selectedId) begin({ kind: 'insert', seamId: selectedId, startPointId, endPointId, newPointId: crypto.randomUUID(), workpieceId: asset.workpiece.id, revision: document.revision }); }}

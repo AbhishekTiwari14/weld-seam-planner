@@ -136,6 +136,7 @@ export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: 
   const index = target ? selected?.geometry.points.findIndex((point) => point.id === (target.kind === 'point' ? target.pointId : target.startPointId)) ?? -1 : -1;
   return <section className={`viewport${planning.draft !== null ? ' is-creating' : ''}`} aria-label="3D workpiece viewport" tabIndex={0}
     data-edit-mode={planning.surfaceEdit?.kind ?? (planning.draft !== null ? 'create' : 'navigate')}
+    data-candidate-preview={planning.discoveryPath ? 'visible' : 'none'}
     data-highlight-kind={target?.kind ?? 'none'} data-highlight-ids={target ? target.kind === 'point' ? target.pointId : `${target.startPointId},${target.endPointId}` : ''}
     onKeyDown={(e) => {
       if (e.target !== e.currentTarget) return;
@@ -145,7 +146,7 @@ export function Viewport({ asset, planning, onFinish, onCancel, onRemoveLast }: 
       }
       if (e.key.toLowerCase() === 'f') commands.current?.fit(); if (e.key === 'Home') { e.preventDefault(); commands.current?.reset(); }
     }}>
-    <div className="viewport-tools"><span className="viewport-caption">WORKPIECE / SOLID</span><div>{selected && <button disabled={planning.draft !== null || !!planning.surfaceEdit} onClick={() => {
+    <div className="viewport-tools"><span className="viewport-caption">WORKPIECE / SOLID</span><div>{planning.discoveryPath && <button disabled={planning.draft !== null || !!planning.surfaceEdit} onClick={() => commands.current?.focus(planning.discoveryPath!.map((point) => workpieceToView(point, asset.view)))}>Focus candidate</button>}{selected && <button disabled={planning.draft !== null || !!planning.surfaceEdit} onClick={() => {
       const points = selected.geometry.points.filter((point) => !target || (target.kind === 'point' ? point.id === target.pointId : point.id === target.startPointId || point.id === target.endPointId));
       commands.current?.focus(points.map((point) => workpieceToView(point.positionMm, asset.view)));
     }}>Focus selection</button>}<button onClick={() => commands.current?.fit()} title="Fit model (F)">Fit model <kbd>F</kbd></button><button onClick={() => commands.current?.reset()} title="Reset camera (Home)">Reset view</button></div></div>
