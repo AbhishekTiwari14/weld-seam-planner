@@ -40,6 +40,32 @@ async function applyPoint(page: Page) {
   await expect(viewport(page)).toHaveAttribute('data-edit-mode', 'navigate');
 }
 
+test('workflow review respects pending parameter and surface edits without losing their candidates', async ({ page }) => {
+  await openPlate(page);
+  await createSeam(page, [[-5, -10, 5], [15, -10, 5]], 'Guarded');
+  await configureSeam(page, '5', '80', '20');
+  const stepReview = page.locator('.workflow-stepper [data-step="5"] button');
+  await expect(stepReview).toBeEnabled();
+  await page.getByLabel('Travel speed').fill('12');
+  await expect(stepReview).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review & Export', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Apply parameters', exact: true }).click();
+  await expect(stepReview).toBeEnabled();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await selectPoint(page, 2);
+  await page.getByRole('button', { name: 'Replace on surface', exact: true }).click();
+  await clickPlate(page, [20, 0, 5]);
+  await expect(page.getByTestId('candidate-coordinates')).toBeVisible();
+  await expect(stepReview).toBeDisabled();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await applyPoint(page);
+  await expect(stepReview).toBeEnabled();
+  await stepReview.click();
+  const { job } = await downloadJob(page);
+  expect(job.seams[0]!.parameters.travelSpeedMmPerS).toBe(12);
+  job.seams[0]!.geometry.points[1]!.positionMm.forEach((value, axis) => expect(value).toBeCloseTo([20, 0, 5][axis]!, 2));
+});
+
 test('surface replacement and insertion preserve IDs, source millimetres and exact export through undo/redo', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   await openPlate(page, 'cm');

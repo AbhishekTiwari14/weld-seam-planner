@@ -15,8 +15,26 @@ import { findingIdentity, type ReviewSnapshot } from '../planning/review.ts';
 
 const Viewport = lazy(() => import('../viewport/Viewport.tsx').then((module) => ({ default: module.Viewport })));
 
-export function PlanningWorkspace({ active, controller, onReplace }: {
-  active: ActiveWorkpiece; controller: ReturnType<typeof createImportController>; onReplace: () => void;
+export function PlanningWorkspace({
+  active,
+  controller,
+  onReplace,
+  onOpenSamples,
+  onDraftingChange,
+  onReviewingChange,
+  onSelectedSeamChange,
+  onReviewBlockedChange,
+  reviewRequest = 0,
+}: {
+  active: ActiveWorkpiece;
+  controller: ReturnType<typeof createImportController>;
+  onReplace: () => void;
+  onOpenSamples?: (() => void) | undefined;
+  onDraftingChange?: ((drafting: boolean) => void) | undefined;
+  onReviewingChange?: ((reviewing: boolean) => void) | undefined;
+  onSelectedSeamChange?: ((hasSelected: boolean) => void) | undefined;
+  onReviewBlockedChange?: ((blocked: boolean) => void) | undefined;
+  reviewRequest?: number | undefined;
 }) {
   const { asset, document } = active;
   const container = useRef<HTMLDivElement | null>(null);
@@ -31,6 +49,31 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
   const [lastReview, setLastReview] = useState<ReviewSnapshot | null>(null);
   const [parameterFocus, setParameterFocus] = useState<string | null>(null);
   const history = useStore(controller.store, (state) => state.history);
+  const prevReviewReq = useRef(reviewRequest);
+
+  useEffect(() => {
+    onDraftingChange?.(draft !== null);
+  }, [draft, onDraftingChange]);
+
+  useEffect(() => {
+    onReviewingChange?.(reviewing);
+  }, [reviewing, onReviewingChange]);
+
+  useEffect(() => {
+    onSelectedSeamChange?.(selectedId !== null);
+  }, [selectedId, onSelectedSeamChange]);
+
+  useEffect(() => {
+    onReviewBlockedChange?.(parameterDirty || surfaceEdit !== null);
+  }, [parameterDirty, surfaceEdit, onReviewBlockedChange]);
+
+  useEffect(() => {
+    if (reviewRequest > prevReviewReq.current) {
+      // External navigation must respect the same uncommitted-edit guards as the inspector.
+      if (!parameterDirty && !surfaceEdit) setReviewing(true);
+    }
+    prevReviewReq.current = reviewRequest;
+  }, [reviewRequest, parameterDirty, surfaceEdit]);
   // Preserve the renderer/camera owner across imports; reset only editor state before paint.
   useLayoutEffect(() => {
     setDraft(null); setSelectedId(null); setError(null); setParameterDirty(false); setReviewing(false);
@@ -119,7 +162,7 @@ export function PlanningWorkspace({ active, controller, onReplace }: {
   const planning = useMemo(() => ({ seams, selectedId, draft, selection, surfaceEdit, candidate, interactionEnabled: !parameterDirty && !reviewing,
     onPlace: place, onSelect: select, onMiss: miss }), [seams, selectedId, draft, selection, surfaceEdit, candidate, parameterDirty, reviewing, place, select, miss]);
   return <div className="planning-workspace" ref={container}>
-    <WorkpiecePanel asset={asset} onReplace={onReplace} />
+    <WorkpiecePanel asset={asset} onReplace={onReplace} onOpenSamples={onOpenSamples} />
     <Suspense fallback={<div className="viewport">Starting 3D viewport…</div>}>
       <Viewport asset={asset} planning={planning} onFinish={finish} onCancel={cancel} onRemoveLast={removeLast} />
     </Suspense>

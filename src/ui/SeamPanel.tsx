@@ -59,7 +59,16 @@ export function SeamPanel({ document, analysis, selectedId, draft, error, parame
         <p className="small">Only clicked points lie on surfaces. Connecting segments are straight chords.</p>
       </section>}
       {error && <div className="planning-error" role="alert">{error}</div>}
-      {!sequence.length && <div className="seam-empty"><h3>Define the first weld path.</h3><p>Use Add seam, then select at least two points on the workpiece. Configure welding targets after finishing.</p></div>}
+      {!sequence.length && <div className="seam-empty">
+        <span className="empty-guide-badge">STEP 02 — DEFINE SEAMS</span>
+        <h3>Define the first weld path.</h3>
+        <ol className="empty-guide-steps">
+          <li>Click <strong>Add seam</strong> above to start drafting.</li>
+          <li>Click at least 2 points on the 3D model surface.</li>
+          <li>Press <kbd>Enter</kbd> or click <strong>Finish seam</strong> to commit.</li>
+        </ol>
+        <p className="small muted">Points are placed directly on the workpiece surface. Connecting segments are straight chords.</p>
+      </div>}
       <ol className="seam-list" aria-label="Execution sequence">
         {sequence.map((id, index) => {
           const seam = seamsById[id]!; const metric = analysis.seams[id];
@@ -85,6 +94,10 @@ export function SeamPanel({ document, analysis, selectedId, draft, error, parame
         <button className="text-button" disabled={disabled} onClick={() => edit((current) => reverseSeam(current, selected.id))}>Reverse direction</button>
         <div className="metric-pair"><div><span>Path length</span><strong>{formatDimension(metrics?.lengthMm ?? 0)} mm</strong></div>
           <div><span>Nominal arc-on</span><strong>{displayTime(metrics?.nominalArcOnTimeSeconds)}</strong></div></div>
+        {Object.values(selected.parameters).some((value) => value === null) && <div className="parameter-tip-banner" role="status">
+          <strong>Step 03: Configure welding parameters</strong>
+          <span>Set travel speed (mm/s), current (A) and voltage (V) targets, then click <strong>Apply parameters</strong>.</span>
+        </div>}
         {!surfaceEdit && <ParameterEditor key={`${selected.id}:${JSON.stringify(selected.parameters)}`} seam={selected} onApply={(parameters) => edit((current) => updateSeamParameters(current, selected.id, parameters))} onDirtyChange={onParameterDirty} />}
         <PointInspector document={document} seam={selected} analysis={analysis} selection={selection} disabled={disabled}
           canInsert={selected.geometry.points.length < LIMITS.pointsPerSeam && remainingPointCapacity(document) > 0}
