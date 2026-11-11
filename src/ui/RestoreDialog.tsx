@@ -30,6 +30,11 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
   async function selectPlan(file: File | null) {
     invalidate(); const current = ticket.current;
     checked.current = null;
+    
+    manual.current = null;
+    setStl(null);
+    if (manualInput.current) manualInput.current.value = '';
+    
     setManualVisible(false);
     setPlan(null); setError(null); setPending(false);
     if (!file) return;
@@ -46,7 +51,7 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
       const initial = { document, sample, automatic: null, warning: null };
       checked.current = initial;
       setPlan(initial);
-      if (!sample || manual.current) return;
+      if (!sample) return;
       const ac = new AbortController(); abort.current = ac;
       const automatic = await loadVerifiedSample(sample, ac.signal);
       if (ticket.current !== current || ac.signal.aborted) return;
