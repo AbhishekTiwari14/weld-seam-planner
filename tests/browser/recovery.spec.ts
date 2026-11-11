@@ -57,7 +57,8 @@ test('bad files, provenance mismatch and cancelled restoration preserve document
   ] as const) {
     await stageRestore(page, text, bytes);
     await expect(page.getByRole('alert')).toContainText(message);
-    await page.getByRole('button', { name: 'Dismiss import error', exact: true }).click();
+    if (await page.getByRole('dialog').isVisible()) await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    else await page.getByRole('button', { name: 'Dismiss import error', exact: true }).click();
     expect(await page.evaluate(() => window.__weldDebug!.snapshot().geometryRevision)).toBe(frame);
     expect(await page.getByTestId('candidate-coordinates').textContent()).toBe(candidate);
     expect(await page.locator('.history-actions button').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('title')))).toEqual(history);
@@ -125,7 +126,7 @@ test('review categories, correction feedback, warning navigation, focus framing 
   await page.screenshot({ path: info.outputPath('review-1440.png') });
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Restore Plan', exact: true }).focus(); await page.keyboard.press('Enter');
-  await expect(page.getByLabel('Original STL', { exact: true })).toBeFocused();
-  await page.keyboard.press('Tab'); await expect(page.getByLabel('Saved weld-job JSON', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Saved weld-job JSON', { exact: true })).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(page.getByLabel('Original STL', { exact: true })).toBeFocused();
   await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Restore Plan', exact: true })).toBeFocused();
 });

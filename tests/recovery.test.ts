@@ -78,6 +78,19 @@ describe('saved plan validation and provenance', () => {
 });
 
 describe('atomic restoration controller', () => {
+  it('sends a prevalidated plan through the same worker and atomic activation boundary', () => {
+    const h = setup();
+    try {
+      const before = h.controller.store.getState().active;
+      h.controller.restoreValidated(h.file, parseSavedPlan(h.text));
+      const receive = h.receivers.at(-1)!;
+      receive({ type: 'preview', preview: h.preview });
+      expect(h.controller.store.getState().active).toBe(before);
+      h.controller.confirm('mm'); receive({ type: 'ready', asset: h.prepared });
+      expect(exportPlanningDocument(h.document())).toBe(h.text);
+      expect(h.controller.store.getState().history.undoCount).toBe(0);
+    } finally { h.controller.dispose(); }
+  });
   it('requires confirmation and restores saved identity/revision with empty history, rejecting stale same-ID callbacks', async () => {
     const h = setup();
     try {

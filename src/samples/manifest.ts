@@ -5,6 +5,8 @@ export interface SampleModel {
   name: string;
   filename: string;
   path: string;
+  sha256: string;
+  byteLength: number;
   defaultUnit: SourceUnit;
   description: string;
   dimensionsMm: [number, number, number];
@@ -20,6 +22,8 @@ export const SAMPLE_MODELS: readonly SampleModel[] = [
     name: 'T-Joint Fillet Assembly',
     filename: 't-joint.stl',
     path: '/samples/t-joint.stl',
+    sha256: 'a400959843fe0bebb0d3781dfe3c2cb93d7356643cf51f40d747230a287248a5',
+    byteLength: 1284,
     defaultUnit: 'mm',
     description: 'Two perpendicular structural plates forming twin longitudinal fillet weld joints.',
     dimensionsMm: [120, 150, 80],
@@ -33,6 +37,8 @@ export const SAMPLE_MODELS: readonly SampleModel[] = [
     name: 'Gusseted Mounting Bracket',
     filename: 'gusset-bracket.stl',
     path: '/samples/gusset-bracket.stl',
+    sha256: 'f8dc49374e914a3943a1bcaff5c799f77f5bf54cbeafcfd90bc5ff600487b5d3',
+    byteLength: 1684,
     defaultUnit: 'mm',
     description: 'Heavy bracket with a vertical backplate, base flange and a triangular stiffener rib.',
     dimensionsMm: [100, 120, 120],
@@ -46,6 +52,8 @@ export const SAMPLE_MODELS: readonly SampleModel[] = [
     name: 'Pipe-on-Plate Nozzle Joint',
     filename: 'pipe-on-plate.stl',
     path: '/samples/pipe-on-plate.stl',
+    sha256: '0a1c36d89df52e8cdc1cb0b6b91a78fdb39c3f4e5a4d1c33fb30379481544c70',
+    byteLength: 15084,
     defaultUnit: 'mm',
     description: 'Cylindrical hollow pipe mounted to a square baseplate for circumferential weld planning.',
     dimensionsMm: [150, 150, 90],
@@ -56,12 +64,34 @@ export const SAMPLE_MODELS: readonly SampleModel[] = [
   },
 ] as const;
 
-export async function fetchSampleFile(sample: SampleModel, signal?: AbortSignal): Promise<File> {
+export async function fetchSampleFile(sample: SampleModel, signal?: AbortSignal, maxBytes?: number): Promise<File> {
   const options: RequestInit = signal ? { signal } : {};
   const response = await fetch(sample.path, options);
   if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
     throw new Error(`Failed to load sample model "${sample.name}" (${response.status} ${response.statusText}).`);
   }
-  const blob = await response.blob();
-  return new File([blob], sample.filename, { type: 'model/stl', lastModified: Date.now() });
+  if (maxBytes === undefined) {
+    const blob = await response.blob();
+    return new File([blob], sample.filename, { type: 'model/stl', lastModified: Date.now() });
+  }
+  const declared = response.headers.get('content-length');
+  if (declared && Number(declared) > maxBytes) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error('Bundled sample exceeds its expected size.');
+  }
+  if (!response.body) throw new Error('Bundled sample could not be read safely.');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new Error('Bundled sample exceeds its expected size.'); }
+      chunks.push(new Uint8Array(value));
+    }
+  } finally { reader.releaseLock(); }
+  return new File(chunks, sample.filename, { type: 'model/stl', lastModified: Date.now() });
 }

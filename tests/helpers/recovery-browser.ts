@@ -25,7 +25,9 @@ export async function stageRestore(page: Page, text: string, stl = recoveryPlate
   await page.getByRole('button', { name: 'Restore Plan', exact: true }).click();
   await page.getByLabel('Original STL', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: stl });
   await page.getByLabel('Saved weld-job JSON', { exact: true }).setInputFiles({ name: 'saved.weld-job.v1.json', mimeType: 'application/json', buffer: Buffer.from(text) });
-  await page.getByRole('button', { name: 'Verify files', exact: true }).click();
+  const verify = page.getByRole('button', { name: 'Verify files', exact: true });
+  await expect.poll(async () => await verify.isEnabled() || await page.getByRole('dialog').getByRole('alert').isVisible()).toBe(true);
+  if (await verify.isEnabled()) await verify.click();
 }
 
 export async function confirmRestore(page: Page, previous: string | null = null, geometries = 7) {

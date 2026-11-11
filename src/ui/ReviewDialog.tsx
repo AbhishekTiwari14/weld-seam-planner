@@ -83,7 +83,7 @@ export function ReviewDialog({ document, draftPending, getCurrentDocument, onClo
     </section>
     {error && <p role="alert" className="planning-error">{error}</p>}
     {notice && <p role="status" className="small">{notice}</p>}
-    <p className="save-explanation">Save the weld plan by downloading JSON. This does not save the STL. Keep the original STL and this JSON together to Restore Plan after a refresh. There is no autosave.</p>
+    <p className="save-explanation">Save the weld plan by downloading JSON. This does not save the STL. Keep the original STL for custom models; matching bundled samples can be loaded automatically when available. There is no autosave.</p>
     <div className="dialog-actions"><button onClick={onClose}>Back to planning</button><button className="primary" disabled={errors.length > 0} onClick={() => {
       try { setError(''); const current = getCurrentDocument(); const filename = downloadWeldJob(current); onDownloaded(current.revision); setNotice(`Download requested: ${filename} · revision ${current.revision}. Check your downloads and keep the original STL.`); }
       catch (cause) { setError(cause instanceof Error ? cause.message : 'The current plan could not be exported.'); }
