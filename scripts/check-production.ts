@@ -68,8 +68,8 @@ try {
     await page.screenshot({ path: '.local/evidence/production-review.png' });
     await page.getByRole('button', { name: 'Close review', exact: true }).click();
     await page.getByRole('button', { name: 'Restore Plan', exact: true }).click();
-    await page.getByLabel('Original STL', { exact: true }).setInputFiles(path.resolve('fixtures/models/analytic-plate.stl'));
     await page.getByLabel('Saved weld-job JSON', { exact: true }).setInputFiles({ name: 'saved.weld-job.v1.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await page.getByLabel('Original STL', { exact: true }).setInputFiles(path.resolve('fixtures/models/analytic-plate.stl'));
     await page.getByRole('button', { name: 'Verify files', exact: true }).click();
     await expect(page.getByRole('dialog')).toContainText('saved in source units');
     await page.getByRole('button', { name: 'Confirm & restore plan', exact: true }).click();

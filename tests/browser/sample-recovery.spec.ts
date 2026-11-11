@@ -30,6 +30,22 @@ async function selectJson(page: Page, text: string) {
   await page.getByLabel('Saved weld-job JSON').setInputFiles({ name: 'saved.weld-job.v1.json', mimeType: 'application/json', buffer: Buffer.from(text) });
 }
 
+test('restore dialog reveals the manual input only when requested for a verified sample', async ({ page }) => {
+  const saved = await fixture(SAMPLE_MODELS[0]!);
+  await page.goto('/'); await page.getByRole('button', { name: 'Restore Plan' }).click();
+  await expect(page.getByText(/Matching bundled samples can be loaded automatically/)).toBeVisible();
+  await expect(page.getByLabel('Original STL')).toHaveCount(0);
+  await selectJson(page, saved.text);
+  await expect(page.getByText('No STL upload required.')).toBeVisible();
+  await expect(page.getByLabel('Original STL')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Use original STL instead' }).click();
+  await expect(page.getByLabel('Original STL')).toBeVisible();
+  await expect(page.getByLabel('Original STL')).toBeFocused();
+  await page.getByLabel('Original STL').setInputFiles({ name: 'original.stl', mimeType: 'model/stl', buffer: saved.bytes });
+  await page.getByRole('button', { name: 'Verify files' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Source fingerprint and geometry match');
+});
+
 test('a browser-authored sample plan survives JSON-only restore after reload', async ({ page }) => {
   await page.goto('/'); await page.getByRole('button', { name: 'Load sample T-Joint Fillet Assembly' }).click();
   await page.getByRole('button', { name: 'Confirm & open model' }).click();
@@ -58,7 +74,8 @@ for (const sample of SAMPLE_MODELS) {
     await page.goto('/'); await page.getByRole('button', { name: 'Restore Plan' }).click();
     await selectJson(page, saved.text);
     await expect(page.getByRole('status').filter({ hasText: `Matched ${sample.name}` })).toBeVisible();
-    await expect(page.getByLabel('Original STL')).toHaveValue('');
+    await expect(page.getByText('No STL upload required.')).toBeVisible();
+    await expect(page.getByLabel('Original STL')).toHaveCount(0);
     await page.getByRole('button', { name: 'Verify files' }).click();
     await expect(page.getByRole('dialog')).toContainText('Source fingerprint and geometry match');
     await page.getByRole('button', { name: 'Confirm & restore plan' }).click();
@@ -182,6 +199,9 @@ test('a manual STL can take over a slow automatic sample fetch', async ({ page }
   });
   await page.goto('/'); await page.getByRole('button', { name: 'Restore Plan' }).click();
   await selectJson(page, saved.text); await started;
+  await expect(page.getByRole('status').filter({ hasText: 'Checking the saved plan' })).toBeVisible();
+  await expect(page.getByLabel('Original STL')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Use original STL instead' }).click();
   await page.getByLabel('Original STL').setInputFiles({ name: 'manual.stl', mimeType: 'model/stl', buffer: saved.bytes });
   await expect(page.getByRole('button', { name: 'Verify files' })).toBeEnabled();
   release(); await done;
