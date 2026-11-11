@@ -34,13 +34,13 @@ When a seam, point, or segment is selected, the **Focus selection** button in th
 
 ## Reliable project recovery
 
-Plans live in browser memory during editing. Project recovery reconstructs the exact authoring state from the original STL model and a previously exported `.weld-job.v1.json` file without server storage or proprietary project files.
+Plans live in browser memory during editing. Project recovery reconstructs the exact authoring state from a previously exported `.weld-job.v1.json` and its original STL. For a matching bundled sample, the application can retrieve and verify that STL automatically; external models still require the original file. No user files are uploaded.
 
 ### Recovery workflow
 
 1. Click **Restore Plan** in the topbar.
-2. Select the original STL and the exported weld-job JSON file.
-3. The system parses and validates the saved JSON plan before starting background processing.
+2. Select the exported weld-job JSON. A matching bundled sample is fetched and checked by SHA-256; otherwise select the original STL. A manual STL can always be supplied instead.
+3. The system parses and validates the saved JSON plan before starting background processing. A missing or changed bundled asset falls back to manual STL selection.
 4. The background worker parses the STL, computes its SHA-256 hash, and extracts geometry bounds.
 5. Verification compares the imported model against saved workpiece provenance:
    - Exact SHA-256 digest match.

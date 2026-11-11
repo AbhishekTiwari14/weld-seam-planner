@@ -97,6 +97,10 @@ export function createImportController(createPort: () => ImportPort) {
       store.setState({ active: { asset: active.asset, document }, history: history.summary() });
     },
     start: (file: File) => start(file),
+    restoreValidated(stl: File, document: PlanningDocument) {
+      try { checkFile(stl); start(stl, requireValidPlanning(document, 'export')); }
+      catch (cause) { fail(recoveryError(cause)); }
+    },
     async restore(stl: File, json: File) {
       stop(); store.setState({ preview: null, restore: null, phase: 'processing', error: null, status: 'Validating saved weld plan…' });
       const ticket = generation;

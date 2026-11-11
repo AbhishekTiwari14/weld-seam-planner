@@ -23,7 +23,7 @@ The system allows welding engineers and robotic technicians to import arbitrary 
 3. **Worker-Driven BVH Surface Picking**:
    Binary/ASCII STL parsing, bounds analysis, and SHA-256 fingerprinting execute in a cancellable Web Worker. Meshes with at least 50,000 displayed triangles use a serialized BVH (`three-mesh-bvh`) for picking. Responsiveness depends on hardware and mesh structure; see the measured [import performance evidence](docs/milestone-2-verification.md).
 4. **Verified Cryptographic Project Recovery**:
-   Projects can be restored without cloud storage or user accounts. Re-uploading the original STL alongside an exported `weld-job.v1.json` verifies SHA-256 digests, units, bounding boxes, schema integrity, and point identities before restoring the session.
+   Projects can be restored without cloud storage or user accounts. Select an exported `weld-job.v1.json`; matching bundled samples are fetched automatically, while custom models require the original STL. Both paths verify SHA-256 digests, units, bounds, schema integrity, and point identities.
 5. **Deterministic Canonical Serialization**:
    The same committed plan produces identical JSON bytes via fixed key ordering and ID-sorted seam definitions. Coordinates are serialized without additional rounding; independently created plans have different UUIDs.
 
@@ -104,7 +104,7 @@ The application guides the engineer through five structured, reactive stages:
   - `DEGENERATE_TRIANGLES_OMITTED`: Source STL mesh defect tracking.
 - **Interactive Navigation**: Click a geometry warning to select and highlight its point or segment. Use **Focus selection** to frame it. Parameter findings focus the relevant input.
 - **Export**: Generates and downloads the schema-compliant `weld-job.v1.json`.
-- **Restore Plan**: Re-load the original STL and JSON to reconstruct the entire plan state offline.
+- **Restore Plan**: Select the saved JSON and, for custom models, the original STL. Matching bundled samples are loaded automatically when available; no user files are uploaded.
 
 ---
 
@@ -134,7 +134,7 @@ Follow this script to reproduce the core workflow in under 3 minutes:
 5. **JSON Export & Recovery Verification (2:20–3:00)**:
    - Click **Download weld job**. The browser downloads the validated `.weld-job.v1.json` plan. Keep `public/samples/t-joint.stl` alongside it; the JSON does not contain the STL.
    - Run the downstream inspector in your terminal: `node examples/inspect-weld-job.ts path/to/downloaded.json`.
-   - In the application, click **Restore Plan** in the topbar, provide `t-joint.stl` and the downloaded JSON, and confirm restoration. The entire project state is recovered.
+   - In the application, click **Restore Plan**, select the downloaded JSON, and confirm restoration. The matching bundled T-joint STL is loaded automatically when available.
 
 ---
 

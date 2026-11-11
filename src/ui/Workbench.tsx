@@ -48,6 +48,7 @@ export function Workbench() {
 
   const openSamples = () => {
     rememberImportOpener();
+    setRestoring(false);
     cancelPendingSampleFetch();
     controller.cancel();
     setDropError(null);
@@ -56,6 +57,7 @@ export function Workbench() {
 
   const choose = () => {
     rememberImportOpener();
+    setRestoring(false);
     cancelPendingSampleFetch();
     setDropError(null);
     input.current?.click();
@@ -127,7 +129,7 @@ export function Workbench() {
       onReplaceModel={openSamples}
     />
 
-    <input ref={input} className="file-input" type="file" accept=".stl,model/stl,application/sla" aria-label="Import STL file" onChange={(e) => { cancelPendingSampleFetch(); const file = e.target.files?.[0]; e.target.value = ''; if (file) controller.start(file); }} />
+    <input ref={input} className="file-input" type="file" accept=".stl,model/stl,application/sla" aria-label="Import STL file" onChange={(e) => { setRestoring(false); cancelPendingSampleFetch(); const file = e.target.files?.[0]; e.target.value = ''; if (file) controller.start(file); }} />
     <main className={`workspace ${state.active ? 'has-model' : ''}`}>
       {state.active ? (
         <PlanningWorkspace
@@ -203,7 +205,7 @@ export function Workbench() {
     {(state.error || dropError) && <div className="error-banner" role="alert"><div><strong>Could not import this model</strong><p>{dropError ?? state.error}{state.active && ' The current workpiece is unchanged.'}</p></div><button onClick={() => { controller.dismissError(); setDropError(null); }} aria-label="Dismiss import error">×</button></div>}
     {(fetchingSample || state.phase === 'processing') && <div className="processing-toast" role="status"><span className="spinner" /><div><strong>{fetchingSample ? `Downloading ${fetchingSample}…` : state.status}</strong><span>The current workpiece stays available until you confirm the replacement.</span></div><button onClick={() => { cancelPendingSampleFetch(); controller.cancel(); }}>Cancel import</button></div>}
     {state.phase === 'confirming' && state.preview && <ImportDialog key={state.preview.sha256} preview={state.preview} restore={state.restore} unsaved={unsaved} replacing={Boolean(state.active)} returnFocus={importOpenerRef.current} onConfirm={(unit) => controller.confirm(unit)} onCancel={() => controller.cancel()} />}
-    {restoring && <RestoreDialog onClose={() => { cancelPendingSampleFetch(); setRestoring(false); }} onRestore={(stl, json) => { cancelPendingSampleFetch(); setRestoring(false); void controller.restore(stl, json); }} />}
+    {restoring && <RestoreDialog onClose={() => { cancelPendingSampleFetch(); setRestoring(false); }} onRestore={(stl, document) => { cancelPendingSampleFetch(); setRestoring(false); controller.restoreValidated(stl, document); }} />}
     {sampling && <SampleDialog unsaved={unsaved} onSelectSample={handleSelectSample} onClose={() => { cancelPendingSampleFetch(); setSampling(false); }} />}
     {dragging && <div className="drop-overlay"><strong>Drop one STL to inspect</strong><span>Your current model stays unchanged until confirmation.</span></div>}
     <footer className="statusbar"><span><i />{state.status}</span><span>Browser-based geometry workspace <b>·</b> No robot registration applied</span></footer>
