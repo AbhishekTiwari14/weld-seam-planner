@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateTJoint } from '../scripts/generate-samples.ts';
+import { generatePipeOnPlate, generateTJoint } from '../scripts/generate-samples.ts';
 import { discoverJunctionCandidates, DISCOVERY_CANDIDATE_LIMIT, DISCOVERY_TRIANGLE_LIMIT } from '../src/candidates/discover.ts';
 import { candidateSchema } from '../src/candidates/contracts.ts';
 import { parseStl } from '../src/import/parse-stl.ts';
@@ -88,6 +88,14 @@ describe('bounded edge-on-face junction discovery', () => {
     const distant = parsed.positions.slice();
     for (let i = 12 * 9 + 2; i < distant.length; i += 3) distant[i] = distant[i]! + 100;
     expect(discover(distant).candidates).toEqual([]);
+  });
+
+  it('reports the unsupported curved pipe junction instead of inventing a circumferential path', () => {
+    const pipe = parseStl(new Uint8Array(generatePipeOnPlate()).buffer);
+    const result = discover(pipe.positions);
+    expect(result.candidates).toEqual([]);
+    expect(result.limitations.join(' ')).toMatch(/straight edge-on-face/);
+    expect(discover(pipe.positions)).toEqual(result);
   });
 
   it('skips a degenerate input triangle while retaining original triangle evidence indices', () => {

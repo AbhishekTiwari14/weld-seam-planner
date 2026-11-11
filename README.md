@@ -72,13 +72,14 @@ The application guides the engineer through five structured, reactive stages:
 ### 1. Import Workpiece
 - **Upload STL**: Drag and drop or browse for standard binary or ASCII STL. The tested acceptance envelope is 500,000 triangles / 50 MiB. Larger files are best effort, subject to hard safety limits of 750,000 triangles / 64 MiB and the existing import deadline.
 - **Or Try a Sample**: Choose one of three built-in engineering assemblies:
-  - **T-Joint Assembly** ($120 \times 150 \times 80\text{ mm}$, 24 triangles): Horizontal base plate ($120 \times 150 \times 10\text{ mm}$) and vertical web plate ($10 \times 130 \times 70\text{ mm}$, $Z \in [10, 80]$). Forms twin $130\text{ mm}$ longitudinal fillet weld joints.
+  - **T-Joint Assembly** ($120 \times 150 \times 80\text{ mm}$, 24 triangles): Horizontal base plate ($120 \times 150 \times 10\text{ mm}$) and vertical web plate ($10 \times 130 \times 70\text{ mm}$, $Z \in [10, 80]$). Provides two $130\text{ mm}$ longitudinal contact junctions for review.
   - **Gusset Bracket Assembly** ($100 \times 120 \times 120\text{ mm}$, 32 triangles): Vertical backplate ($100 \times 15 \times 120\text{ mm}$), base flange ($100 \times 105 \times 15\text{ mm}$), and triangular stiffener gusset ($10\text{ mm}$ thick with $90\text{ mm}$ legs along $Y$ and $Z$).
   - **Pipe-on-Plate Assembly** ($150 \times 150 \times 90\text{ mm}$, 300 triangles): Square base plate ($150 \times 150 \times 15\text{ mm}$) with hollow cylindrical pipe ($\text{OD} = 70\text{ mm}$, $\text{ID} = 50\text{ mm}$, wall thickness $10\text{ mm}$, height $75\text{ mm}$, 36 radial segments) for circumferential path planning.
   - *Topology note*: Sample models are programmatically generated multi-body contact assemblies with touching coplanar faces at component interfaces; they are structured engineering parts, not certified single-boundary watertight manifolds.
 - **Unit Confirmation**: Inspect source units (`mm`, `cm`, `m`, `in`) against physical dimensions. The geometry is automatically normalized to millimetres.
 
 ### 2. Define Seams
+- **Optional assistance**: Click **Discover Seams**, inspect a highlighted candidate and its evidence, then accept or reject it. Suggestions are unverified geometric contact paths, not confirmed welds. The current straight edge-on-face detector supports at most 4,000 triangles and does not detect curved pipe junctions; manual planning remains available. See [guided seam discovery](docs/guided-seam-discovery.md) for tolerances and limits.
 - Click **Add seam**.
 - Click two or more surface points on the 3D model. Raycasting snaps directly to triangular mesh faces.
 - Press **Enter** or click **Finish seam** to commit the seam.
@@ -98,8 +99,8 @@ The application guides the engineer through five structured, reactive stages:
 
 ### 5. Review & Export
 - **Engineering Review**: Automated heuristics check for:
-  - `SHORT_SEGMENT`: Micro-segments $< 1\text{ mm}$ that risk torch dwell burn-through.
-  - `TURN_ANGLE_HIGH`: Sharp corners $> 45^\circ$ where continuous robotic welding may falter without pause/re-orientation.
+  - `SHORT_SEGMENT`: Segments $< 1\text{ mm}$ flagged for inspection.
+  - `TURN_ANGLE_HIGH`: Direction changes $> 45^\circ$ flagged for inspection.
   - `DEGENERATE_TRIANGLES_OMITTED`: Source STL mesh defect tracking.
 - **Interactive Navigation**: Click a geometry warning to select and highlight its point or segment. Use **Focus selection** to frame it. Parameter findings focus the relevant input.
 - **Export**: Generates and downloads the schema-compliant `weld-job.v1.json`.
@@ -304,13 +305,13 @@ The codebase enforces strict, reproducible verification gates:
 # Strict TypeScript compilation without emissions
 npm run typecheck
 
-# 193 unit & integration tests covering domain logic, recovery, samples, and consumer validation
+# Unit and integration tests covering domain logic, discovery, recovery, samples, and consumer validation
 npm test
 
 # Production build bundle verification
 npm run build
 
-# 29 end-to-end browser tests in real headless Chromium (viewport picking, UI, samples, recovery)
+# End-to-end browser tests in real headless Chromium (viewport picking, discovery, UI, samples, recovery)
 npm run test:browser
 
 # Production smoke test against a live preview server
@@ -322,7 +323,7 @@ git diff --exit-code -- schemas fixtures
 ```
 
 ### Complete Test Coverage Summary
-- **193 Unit & Integration Tests**:
+- **Unit & Integration Tests**:
   - `tests/export.test.ts`: Serialization, Zod schema validation, independent Ajv validation against JSON Schema 2020-12, fixture roundtrips.
   - `tests/validation.test.ts`: Planning document invariants, bounds checking, sequence validation.
   - `tests/geometry.test.ts`: Double-precision Float64 vector math, segment distances, turn angle measurements.
@@ -339,8 +340,10 @@ git diff --exit-code -- schemas fixtures
   - `tests/picking.test.ts`: Authoritative surface picking on meshes.
   - `tests/render-timer.test.ts`: Frame rendering metrics.
   - `tests/candidates.test.ts`: Candidate seam conversion.
+  - `tests/discovery.test.ts` and `tests/discovery-controller.test.ts`: Contact detection, evidence and worker lifecycle.
   - `tests/stl-precision.test.ts`: High-precision large-offset coordinates.
-- **29 Browser End-to-End Tests**:
+- **Browser End-to-End Tests**:
+  - `tests/browser/discovery.spec.ts`: Candidate review, acceptance, history, recovery, worker lifecycle and unsupported models.
   - `tests/browser/samples.spec.ts`: Sample loading, 5-step stepper synchronization, seam creation on T-joint, JSON export, recovery, responsive layout at 1280x720 and 1440x900, and rapid selection/cancellation isolation.
   - `tests/browser/recovery.spec.ts`: End-to-end browser verification of plan recovery from STL + JSON.
   - Review grouping, warning navigation and focus are covered within `recovery.spec.ts` and `editor.spec.ts`.
@@ -352,6 +355,7 @@ git diff --exit-code -- schemas fixtures
 
 ## Reference Documentation & Materials
 
+- [Guided Seam Discovery: Method, Limits and Measurements](docs/guided-seam-discovery.md)
 - [Milestone 6A Release Readiness and Verification](docs/milestone-6a-verification.md)
 - [Engineering Review, Warning Navigation and Project Recovery](docs/engineering-review-recovery.md)
 - [Milestone 5 Verification and Test Evidence](docs/milestone-5-verification.md)

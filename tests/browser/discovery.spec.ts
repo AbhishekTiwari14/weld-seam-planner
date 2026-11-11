@@ -1,12 +1,37 @@
 import { expect, test, type Page } from '@playwright/test';
 import { configureSeam, downloadJob } from '../helpers/planning-browser.ts';
+import { stageRestore } from '../helpers/recovery-browser.ts';
+import { binaryStl } from '../helpers/stl.ts';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
-async function loadSample(page: Page) {
-  await page.goto('/');
+async function loadSample(page: Page, inspect = false) {
+  await page.goto(inspect ? '/?inspect=1' : '/');
   await page.getByRole('button', { name: 'Load sample T-Joint Fillet Assembly' }).click();
   await page.getByRole('button', { name: 'Confirm & open model' }).click();
   await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
 }
+
+test('repeated discovery and preview release workers and GPU overlays', async ({ page }) => {
+  let started = 0; let closed = 0;
+  page.on('worker', (worker) => {
+    if (worker.url().includes('discovery.worker')) { started++; worker.on('close', () => closed++); }
+  });
+  await loadSample(page, true);
+  await expect.poll(() => page.evaluate(() => window.__weldDebug?.snapshot().geometries)).toBe(1);
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole('button', { name: 'Discover Seams' }).click();
+    await expect(page.getByText('2 candidates found')).toBeVisible();
+    await page.getByRole('button', { name: /Candidate 1.*Suggested/ }).click();
+    await expect.poll(() => page.evaluate(() => window.__weldDebug?.snapshot().geometries)).toBeGreaterThan(1);
+    await expect.poll(() => closed).toBe(i + 1);
+  }
+  expect(started).toBe(3);
+  await page.getByRole('button', { name: 'Discover Seams' }).click();
+  await expect(page.getByText('2 candidates found')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__weldDebug?.snapshot().geometries)).toBe(1);
+  await expect.poll(() => closed).toBe(4);
+});
 
 test('discovers, reviews, accepts, undoes, redoes and exports a T-joint candidate', async ({ page }) => {
   const workers: string[] = [];
@@ -24,6 +49,7 @@ test('discovers, reviews, accepts, undoes, redoes and exports a T-joint candidat
   await page.getByRole('button', { name: 'Focus candidate' }).click();
   await page.getByRole('button', { name: 'Reject candidate' }).click();
   await expect(page.locator('.seam-list li')).toHaveCount(0);
+  await expect(page.locator('.seam-panel-footer')).toContainText('Revision 0');
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
   await page.getByRole('button', { name: 'Restore suggestion' }).click();
   await page.getByRole('button', { name: 'Accept candidate' }).click();
@@ -57,6 +83,12 @@ test('discovers, reviews, accepts, undoes, redoes and exports a T-joint candidat
   await page.getByRole('button', { name: /Undo/ }).click();
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
   expect(workers.some((url) => url.includes('discovery.worker'))).toBe(true);
+  await page.reload();
+  await stageRestore(page, text, await readFile(resolve('public/samples/t-joint.stl')), 't-joint.stl');
+  await page.getByRole('button', { name: 'Confirm & restore plan' }).click();
+  await expect(page.locator('.statusbar')).toContainText('Restored t-joint.stl · 1 seams');
+  await page.getByRole('button', { name: 'Review & Export', exact: true }).click();
+  expect((await downloadJob(page)).text).toBe(text);
 });
 
 test('preserves manual editing and blocks candidate actions during drafts and parameter edits', async ({ page }) => {
@@ -72,6 +104,10 @@ test('preserves manual editing and blocks candidate actions during drafts and pa
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.52);
   await page.getByRole('button', { name: /Finish seam/ }).click();
   await expect(page.locator('.seam-list li')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Discover Seams' }).click();
+  await expect(page.getByText('2 candidates found')).toBeVisible();
+  await page.getByRole('button', { name: /Candidate 1.*Suggested/ }).click();
+  await expect(page.locator('.seam-list li')).toHaveCount(1);
   await page.getByLabel('Travel speed').fill('5');
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
   await page.getByRole('button', { name: 'Discard edits' }).click();
@@ -82,6 +118,42 @@ test('preserves manual editing and blocks candidate actions during drafts and pa
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
   await page.getByRole('button', { name: /Cancel point edit/ }).click();
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeEnabled();
+});
+
+test('accepting again after undo and editing the accepted seam retain correct status', async ({ page }) => {
+  await loadSample(page);
+  await page.getByRole('button', { name: 'Discover Seams' }).click();
+  await page.getByRole('button', { name: /Candidate 1.*Suggested/ }).click();
+  await page.getByRole('button', { name: 'Accept candidate' }).click();
+  const firstId = await page.locator('.seam-list li').getAttribute('data-seam-id');
+  await page.getByRole('button', { name: /Undo/ }).click();
+  await page.getByRole('button', { name: 'Accept candidate' }).click();
+  const secondId = await page.locator('.seam-list li').getAttribute('data-seam-id');
+  expect(secondId).not.toBe(firstId);
+  await expect(page.getByRole('button', { name: /Redo/ })).toBeDisabled();
+  await page.getByText('Ordered points & geometry').click();
+  await page.getByRole('button', { name: 'Select point 1' }).click();
+  const oldCoordinates = await page.getByTestId('selected-coordinates').innerText();
+  await page.getByRole('button', { name: 'Replace on surface' }).click();
+  const box = await page.locator('canvas').boundingBox();
+  if (!box) throw new Error('Canvas unavailable');
+  await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.52);
+  await expect(page.getByTestId('candidate-coordinates')).toBeVisible();
+  await page.getByRole('button', { name: /Apply point/ }).click();
+  await expect(page.getByTestId('selected-coordinates')).not.toHaveText(oldCoordinates);
+  await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Candidate 1.*Accepted/ })).toBeVisible();
+});
+
+test('models beyond the discovery limit remain available for manual planning', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Import STL file').setInputFiles({ name: 'large.stl', mimeType: 'model/stl', buffer: Buffer.from(binaryStl(4001)) });
+  await page.getByRole('button', { name: 'Confirm & open model' }).click();
+  await expect(page.getByText('Model ready', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Discover Seams' }).click();
+  await expect(page.getByRole('alert')).toContainText('4000 triangles');
+  await page.getByRole('button', { name: 'Add seam', exact: true }).click();
+  await expect(page.getByLabel('Draft seam')).toBeVisible();
 });
 
 test('reports worker failure without affecting the manual plan', async ({ page }) => {
