@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LIMITS, type PathPoint, type PlanningDocument, type Seam, type Vec3 } from '../domain/contracts.ts';
 import { removeSeam, renameSeam, reverseSeam, setSequence, updateSeamParameters } from '../domain/operations.ts';
 import type { PlanningAnalysis } from '../validation/planning.ts';
@@ -22,13 +22,14 @@ function SeamName({ seam, edit, disabled }: { seam: Seam; edit: PlanEdit; disabl
 }
 
 export function SeamPanel({ document, analysis, selectedId, draft, error, parameterDirty, onParameterDirty, edit, onSelect, onAdd, onFinish, onCancel, onRemoveLast, onReview,
-  selection, surfaceEdit, candidate, history, onHistory, onSelectGeometry, onReplacePoint, onInsertPoint }: {
+  selection, surfaceEdit, candidate, history, onHistory, onSelectGeometry, onReplacePoint, onInsertPoint, discoveryPanel }: {
   document: PlanningDocument; analysis: PlanningAnalysis; selectedId: string | null; draft: PathPoint[] | null;
   error: string | null; parameterDirty: boolean; onParameterDirty: (dirty: boolean) => void; edit: PlanEdit;
   onSelect: (id: string | null) => void; onAdd: () => void; onFinish: () => void; onCancel: () => void; onRemoveLast: () => void; onReview: () => void;
   selection: GeometrySelection | null; surfaceEdit: SurfaceEdit | null; candidate: Vec3 | null; history: HistorySummary;
   onHistory: (direction: HistoryDirection) => void; onSelectGeometry: (target: GeometrySelection | null) => void;
   onReplacePoint: (pointId: string) => void; onInsertPoint: (startId: string, endId: string) => void;
+  discoveryPanel: ReactNode;
 }) {
   const { sequence, seamsById } = document.content;
   const selected = selectedId ? seamsById[selectedId] : undefined;
@@ -44,6 +45,7 @@ export function SeamPanel({ document, analysis, selectedId, draft, error, parame
     <div className="seam-panel-header"><div><span className="eyebrow">02 / PLAN</span><h2>Weld seams <span>{sequence.length}</span></h2></div>
       <button className="primary" onClick={onAdd} disabled={disabled || sequence.length >= LIMITS.seams}>Add seam</button></div>
     <div className="seam-panel-scroll">
+      {discoveryPanel}
       {surfaceEdit && <section className="draft-card" aria-label="Surface point edit">
         <span className="eyebrow">{surfaceEdit.kind === 'replace' ? 'REPLACE POINT' : 'INSERT POINT'}</span>
         <p>Pick a visible surface position, inspect the preview, then Apply. Click again to change the candidate; drag to navigate.</p>

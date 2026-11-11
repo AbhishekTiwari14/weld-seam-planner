@@ -15,6 +15,7 @@ export interface ViewportPlanning {
   selection: GeometrySelection | null;
   surfaceEdit: SurfaceEdit | null;
   candidate: Vec3 | null;
+  discoveryPath: readonly Vec3[] | null;
   interactionEnabled: boolean;
   onPlace: (point: Vec3) => void;
   onSelect: (id: string) => void;
@@ -27,6 +28,7 @@ export function SeamInteraction({ asset, mesh, planning }: { asset: MeshAsset; m
   const selectable = useRef<Line2[]>([]);
   const transient = useRef<Line2[]>([]);
   const highlight = useRef<Line2[]>([]);
+  const discovery = useRef<Line2[]>([]);
   const [preview, setPreview] = useState<Vec3 | null>(null);
   const creating = planning.draft !== null;
   const placing = creating || planning.surfaceEdit !== null;
@@ -100,5 +102,6 @@ export function SeamInteraction({ asset, mesh, planning }: { asset: MeshAsset; m
   return <><SeamLayer seams={planning.seams} selectedId={planning.selectedId} draft={null} preview={null} view={asset.view} selectable={selectable} />
     {creating && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={planning.draft} preview={preview} view={asset.view} selectable={transient} />}
     {target && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={null} preview={null} view={asset.view} selectable={highlight}
-      pointHighlight={pointHighlight} segmentHighlight={segmentHighlight} editPreview={editPreview} />}</>;
+      pointHighlight={pointHighlight} segmentHighlight={segmentHighlight} editPreview={editPreview} />}
+    {planning.discoveryPath && <SeamLayer seams={NO_SEAMS} selectedId={null} draft={null} preview={null} view={asset.view} selectable={discovery} suggestion={planning.discoveryPath} />}</>;
 }
