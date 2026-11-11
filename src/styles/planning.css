@@ -14,7 +14,7 @@
 .seam-panel-header h2 { font-size: 18px; font-weight: 550; margin-top: 7px; }
 .seam-panel-header h2 span { font-size: 12px; padding-left: 5px; color: var(--brand-revolution-green); }
 .seam-panel-header button { padding: 9px 12px; font-size: 12px; }
-.seam-panel-scroll { overflow-y: auto; min-height: 0; flex: 1; padding: 0 16px 18px; }
+.seam-panel-scroll { overflow-y: auto; min-height: 0; flex: 1; padding: 0 16px 18px; scrollbar-width: thin; scrollbar-color: var(--brand-light-sand-s3) transparent; }
 .discovery-panel { padding: 16px 0; border-bottom: 1px solid var(--brand-light-sand-s2); }
 .discovery-panel .section-heading { gap: 8px; }
 .discovery-panel h3 { font-size: 13px; }
@@ -95,7 +95,8 @@ button.text-button { padding: 6px 0; border: 0; font-size: 11px; text-decoration
 .save-explanation { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--brand-light-sand-s2); font-size: 11px; line-height: 1.7; }
 .review-sequence strong, .diagnostic-action strong { overflow-wrap: anywhere; }
 .restore-file { display: grid; gap: 10px; font-size: 12px; margin: 18px 0; }
-.restore-file input { width: 100%; font-size: 11px; }
+.restore-file input { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--brand-light-sand-s2); border-radius: 4px; background: var(--brand-light-sand); font-size: 11px; }
+.restore-file input::file-selector-button { margin-right: 10px; padding: 7px 10px; border: 1px solid var(--brand-light-sand-s2); border-radius: 4px; background: var(--brand-light-sand-s1); color: var(--brand-dark-forest); cursor: pointer; font: inherit; }
 .restore-file input:focus-visible { outline: 2px solid var(--brand-bright-discovery); outline-offset: 4px; }
 .import-dialog { overflow-y: auto; }
 .topbar-actions { gap: 14px; }
@@ -132,16 +133,25 @@ button.text-button { padding: 6px 0; border: 0; font-size: 11px; text-decoration
 .stepper-item.is-ready .stepper-number { background: var(--brand-bright-discovery); color: var(--brand-dark-forest); }
 
 /* Empty Workspace Split */
-.empty-split { display: grid; grid-template-columns: 360px 1fr; width: 100%; height: 100%; overflow-y: auto; background-image: radial-gradient(var(--brand-light-sand-s1) .8px, transparent .8px); background-size: 24px 24px; }
-.empty-upload-card { padding: 40px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 1px solid var(--brand-light-sand-s2); background: var(--brand-light-sand); }
+.empty-split { display: grid; flex: 1; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); width: 100%; background-image: radial-gradient(var(--brand-light-sand-s1) .8px, transparent .8px); background-size: 24px 24px; }
+.empty-upload-card { padding: 28px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 1px solid var(--brand-light-sand-s2); background: var(--brand-light-sand); }
 .empty-upload-card h1 { font-size: 26px; font-weight: 550; letter-spacing: -.8px; margin: 10px 0 12px; }
 .empty-upload-card p { font-size: 13px; line-height: 1.6; color: var(--brand-revolution-green); margin-bottom: 20px; }
-.empty-samples-card { padding: 32px 28px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
+.empty-samples-card { min-width: 0; padding: 24px 28px; display: flex; flex-direction: column; justify-content: center; }
 .samples-card-header h2 { font-size: 22px; font-weight: 550; letter-spacing: -.6px; margin: 8px 0 6px; }
 .samples-card-header p { font-size: 12px; margin-bottom: 16px; }
 
 /* Sample Dialog & Cards */
-.sample-dialog { width: 840px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 40px); }
+.import-dialog.sample-dialog { width: 720px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 40px); }
+.sample-dialog .sample-grid { grid-template-columns: 1fr; gap: 8px; margin: 14px 0; }
+.sample-dialog .sample-card { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; align-items: stretch; }
+.sample-dialog .sample-card-preview { height: auto; min-height: 88px; border-bottom: 0; }
+.sample-dialog .sample-icon { width: 68px; height: 54px; }
+.sample-dialog .sample-badge { display: none; }
+.sample-dialog .sample-card-body { justify-content: center; padding: 10px 14px; }
+.sample-dialog .sample-card-action { display: flex; align-items: center; padding: 10px 14px; }
+.sample-dialog .sample-card-action button { width: auto; min-width: 112px; }
+.sample-dialog .dialog-actions { margin-top: 12px; }
 .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
 .sample-card { display: flex; flex-direction: column; background: var(--brand-light-sand); border: 1px solid var(--brand-light-sand-s2); border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(3,5,0,0.04); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 .sample-card:hover { border-color: var(--brand-revolution-green); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(3,5,0,0.08); }
@@ -182,4 +192,21 @@ button.text-button { padding: 6px 0; border: 0; font-size: 11px; text-decoration
   .planning-workspace .viewport { flex-basis: 68%; height: 480px; min-height: 360px; }
   .seam-panel { width: 100%; min-height: 400px; max-height: 700px; }
   .review-limitations ul { columns: 1; }
+}
+@media (max-width: 600px) {
+  .workflow-stepper { overflow: visible; }
+  .stepper-list { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stepper-divider { display: none; }
+  .stepper-text strong, .stepper-text small { white-space: normal; }
+  .planning-workspace { overflow: visible; }
+  .planning-workspace .workpiece-panel { width: 100%; max-height: none; overflow: visible; }
+  .planning-workspace .viewport { flex: 0 0 100%; height: 400px; }
+  .seam-panel { max-height: none; min-height: 0; }
+  .seam-panel-scroll { overflow: visible; }
+  .sample-dialog { padding: 24px 18px; }
+  .sample-dialog .sample-card { grid-template-columns: 70px minmax(0, 1fr); }
+  .sample-dialog .sample-card-preview { grid-row: span 2; }
+  .sample-dialog .sample-icon { width: 56px; }
+  .sample-dialog .sample-card-body { padding: 10px; }
+  .sample-dialog .sample-card-action { grid-column: 2; padding: 0 10px 10px; }
 }

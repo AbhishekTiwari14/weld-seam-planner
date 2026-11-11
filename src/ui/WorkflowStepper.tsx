@@ -33,11 +33,8 @@ export function WorkflowStepper({
     : !allConfigured
       ? 'active'
       : 'completed';
-  const step4State = !hasModel || seamCount < 2 || !allConfigured
-    ? 'upcoming'
-    : !isReviewing
-      ? 'active'
-      : 'completed';
+  // A committed plan already has an execution order, including a single seam.
+  const step4State = hasModel && seamCount > 0 && allConfigured ? 'completed' : 'upcoming';
   const step5State = !hasModel || seamCount === 0
     ? 'upcoming'
     : isReviewing

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { SAMPLE_MODELS, type SampleModel } from '../samples/manifest.ts';
 import { SampleIcon } from './SampleIcons.tsx';
+import { DialogClose } from './DialogClose.tsx';
 
 export function SampleDialog({
   onSelectSample,
@@ -35,10 +36,7 @@ export function SampleDialog({
     >
       <span className="eyebrow">BUILT-IN 3D SAMPLES</span>
       <h2 id="sample-dialog-title">Select an engineering sample.</h2>
-      <p>
-        Explore illustrative joint assemblies. These self-authored models load through the same worker and
-        validation pipeline as uploaded STLs.
-      </p>
+      <p>Choose a sample to inspect and plan. Models use the same import checks as uploaded STLs.</p>
 
       {unsaved && (
         <p className="notice" role="status">
@@ -64,9 +62,6 @@ export function SampleDialog({
                   <strong>Geometry:</strong> {sample.triangles.toLocaleString()} triangles
                 </span>
               </div>
-              <p className="sample-context small">
-                <em>Joint:</em> {sample.weldingContext}
-              </p>
             </div>
             <div className="sample-card-action">
               <button
@@ -87,6 +82,7 @@ export function SampleDialog({
           Cancel
         </button>
       </div>
+      <DialogClose label="Close sample dialog" onClose={onClose} />
     </dialog>
   );
 }

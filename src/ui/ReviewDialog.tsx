@@ -10,6 +10,7 @@ import { PARAMETER_FIELDS } from './ParameterEditor.tsx';
 import { GeometryDiagnostics } from './GeometryDiagnostics.tsx';
 import type { GeometrySelection } from '../planning/selection.ts';
 import { findingIdentity, groupFindings, type FindingGroup, type ReviewSnapshot } from '../planning/review.ts';
+import { DialogClose } from './DialogClose.tsx';
 
 function ReviewGroup({ group, expanded, children }: { group: FindingGroup; expanded: boolean; children: () => ReactNode }) {
   const [open, setOpen] = useState(expanded);
@@ -49,7 +50,8 @@ export function ReviewDialog({ document, draftPending, getCurrentDocument, onClo
   const resolved = previousReview && document.revision > previousReview.revision ? previousReview.identities.filter((id) => !currentIdentities.has(id)).length : 0;
   useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
   return <dialog ref={ref} className="review-dialog" aria-labelledby="review-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
-    <div className="review-heading"><div><span className="eyebrow">03 / ENGINEERING REVIEW</span><h2 id="review-title">Review & Export</h2></div><button onClick={onClose} aria-label="Close review">Close</button></div>
+    <div className="review-heading"><div><span className="eyebrow">03 / ENGINEERING REVIEW</span><h2 id="review-title">Review & Export</h2></div></div>
+    <DialogClose label="Close review" onClose={onClose} />
     <p className="small muted">Committed plan · revision {document.revision} · workpiece coordinates in millimetres</p>
     <p className="review-readiness" role="status">{errors.length ? 'Corrections required before export.' : 'Valid for export — robot safety and feasibility are not verified.'}</p>
     {resolved > 0 && <p className="notice" role="status">{resolved} previously reported {resolved === 1 ? 'finding is' : 'findings are'} no longer present at revision {document.revision}. Review the remaining findings below.</p>}
