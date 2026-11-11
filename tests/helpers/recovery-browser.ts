@@ -23,8 +23,16 @@ export async function createRecoverablePlan(page: Page, inspect = true) {
 
 export async function stageRestore(page: Page, text: string, stl = recoveryPlate, filename = 'renamed-original.stl') {
   await page.getByRole('button', { name: 'Restore Plan', exact: true }).click();
-  await page.getByLabel('Original STL', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: stl });
   await page.getByLabel('Saved weld-job JSON', { exact: true }).setInputFiles({ name: 'saved.weld-job.v1.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+  const dialog = page.getByRole('dialog');
+  const original = dialog.getByLabel('Original STL', { exact: true });
+  const useOriginal = dialog.getByRole('button', { name: 'Use original STL instead' });
+  await expect.poll(async () => await original.isVisible() || await useOriginal.isVisible() || await dialog.getByRole('alert').isVisible()).toBe(true);
+  if (!await original.isVisible()) {
+    if (!await useOriginal.isVisible()) return;
+    await useOriginal.click();
+  }
+  await original.setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: stl });
   const verify = page.getByRole('button', { name: 'Verify files', exact: true });
   await expect.poll(async () => await verify.isEnabled() || await page.getByRole('dialog').getByRole('alert').isVisible()).toBe(true);
   if (await verify.isEnabled()) await verify.click();

@@ -127,6 +127,6 @@ test('review categories, correction feedback, warning navigation, focus framing 
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Restore Plan', exact: true }).focus(); await page.keyboard.press('Enter');
   await expect(page.getByLabel('Saved weld-job JSON', { exact: true })).toBeFocused();
-  await page.keyboard.press('Tab'); await expect(page.getByLabel('Original STL', { exact: true })).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
   await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Restore Plan', exact: true })).toBeFocused();
 });

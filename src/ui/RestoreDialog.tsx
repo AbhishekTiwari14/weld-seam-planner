@@ -9,6 +9,7 @@ type CheckedPlan = { document: PlanningDocument; sample: SampleModel | null; aut
 
 export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, document: PlanningDocument) => void; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement | null>(null);
+  const manualInput = useRef<HTMLInputElement | null>(null);
   const ticket = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const manual = useRef<File | null>(null);
@@ -16,6 +17,7 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
   const [stl, setStl] = useState<File | null>(null);
   const [plan, setPlan] = useState<CheckedPlan | null>(null);
   const [pending, setPending] = useState(false);
+  const [manualVisible, setManualVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const invalidate = () => { ticket.current++; abort.current?.abort(); abort.current = null; };
   useEffect(() => {
@@ -23,10 +25,12 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
     const dialog = ref.current; dialog?.showModal();
     return () => { invalidate(); dialog?.close(); opener?.focus(); };
   }, []);
+  useEffect(() => { if (manualVisible) manualInput.current?.focus(); }, [manualVisible]);
 
   async function selectPlan(file: File | null) {
     invalidate(); const current = ticket.current;
     checked.current = null;
+    setManualVisible(false);
     setPlan(null); setError(null); setPending(false);
     if (!file) return;
     setPending(true);
@@ -58,6 +62,7 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
   }
 
   const source = stl ?? plan?.automatic ?? null;
+  const showManual = manualVisible || !!stl || !!(plan && (!plan.sample || plan.warning));
   return <dialog ref={ref} className="import-dialog restore-dialog" aria-labelledby="restore-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
     <span className="eyebrow">RECOVER / LOCAL FILES</span><h2 id="restore-title">Restore a saved plan.</h2>
     <p>Select your weld-job JSON first. Matching bundled samples can be loaded automatically; other plans require their original STL. Nothing is uploaded.</p>
@@ -65,14 +70,15 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, d
       <label className="restore-file">Saved weld-job JSON<input autoFocus type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0] ?? null; void selectPlan(file); }} /></label>
       {pending && <p className="small" role="status">Checking the saved plan and bundled source…</p>}
       {error && <p className="planning-error" role="alert">{error}</p>}
-      {plan?.automatic && <p className="notice" role="status">Matched {plan.sample!.name}. Its verified bundled STL will be loaded automatically; you may select an original STL instead.</p>}
+      {plan?.automatic && <p className="notice" role="status"><strong>Matched {plan.sample!.name}.</strong> No STL upload required. The verified bundled model will be loaded automatically.</p>}
       {plan?.sample && !plan.automatic && !pending && !plan.warning && <p className="small">Matched {plan.sample.name}; the selected STL will be verified.</p>}
       {plan && !plan.sample && <p className="small">No bundled sample matches this plan. Select its original STL.</p>}
       {plan?.warning && <p className="notice" role="alert">{plan.warning}</p>}
-      <label className="restore-file">Original STL<input type="file" accept=".stl" onChange={(event) => {
+      {plan?.sample && !showManual && <button className="text-button" type="button" onClick={() => setManualVisible(true)}>Use original STL instead</button>}
+      {showManual && <label className="restore-file">Original STL<input ref={manualInput} type="file" accept=".stl" onChange={(event) => {
         const file = event.target.files?.[0] ?? null; manual.current = file; setStl(file);
         if (file && pending && checked.current?.sample) { invalidate(); setPending(false); setPlan({ ...checked.current, warning: 'Automatic sample loading cancelled. The selected STL will be verified.' }); }
-      }} /></label>
+      }} /></label>}
       <p className="small muted">The selected source is verified against the saved fingerprint, units, metadata and bounds before confirmation. Your current workspace stays unchanged until then.</p>
       <div className="dialog-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={pending || !source || !plan}>Verify files</button></div>
     </form>
