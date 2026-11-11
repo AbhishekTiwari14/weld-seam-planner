@@ -27,6 +27,8 @@ export function Workbench() {
   const unsaved = !!state.active && state.active.document.revision !== state.savedRevision;
   const sampleAbortRef = useRef<AbortController | null>(null);
   const sampleTicketRef = useRef<number>(0);
+  const importOpenerRef = useRef<HTMLElement | null>(null);
+  const rememberImportOpener = () => { importOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; };
 
   const cancelPendingSampleFetch = useCallback(() => {
     sampleTicketRef.current++;
@@ -45,6 +47,7 @@ export function Workbench() {
   }, [controller, cancelPendingSampleFetch]);
 
   const openSamples = () => {
+    rememberImportOpener();
     cancelPendingSampleFetch();
     controller.cancel();
     setDropError(null);
@@ -52,12 +55,14 @@ export function Workbench() {
   };
 
   const choose = () => {
+    rememberImportOpener();
     cancelPendingSampleFetch();
     setDropError(null);
     input.current?.click();
   };
 
   const handleSelectSample = async (sample: SampleModel) => {
+    if (!sampling) rememberImportOpener();
     setSampling(false);
     setDropError(null);
     cancelPendingSampleFetch();
@@ -95,7 +100,7 @@ export function Workbench() {
 
   return <div className="app-shell" onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes('Files')) setDragging(true); }}
     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); }}
-    onDrop={(e) => { e.preventDefault(); setDragging(false); if (restoring || sampling || document.querySelector('dialog[open]')) return; cancelPendingSampleFetch(); setDropError(null); if (e.dataTransfer.files.length === 1) controller.start(e.dataTransfer.files[0]!); else setDropError('Drop one STL file at a time.'); }}>
+    onDrop={(e) => { e.preventDefault(); setDragging(false); if (restoring || sampling || document.querySelector('dialog[open]')) return; rememberImportOpener(); cancelPendingSampleFetch(); setDropError(null); if (e.dataTransfer.files.length === 1) controller.start(e.dataTransfer.files[0]!); else setDropError('Drop one STL file at a time.'); }}>
     <header className="topbar">
       <div className="brand-lockup">
         <img src="/brand/armatrix-horizontal-logo-light-sand-rgb.svg" alt="Armatrix" />
@@ -105,7 +110,7 @@ export function Workbench() {
       <div className="topbar-actions">
         <span className="local-badge" title="No autosave. Download JSON and keep the original STL for recovery.">Memory-only{unsaved ? ' · Unsaved changes' : ''}</span>
         <button onClick={openSamples}>Try Sample</button>
-        <button onClick={() => { cancelPendingSampleFetch(); controller.cancel(); setDropError(null); setRestoring(true); }}>Restore Plan</button>
+        <button onClick={() => { rememberImportOpener(); cancelPendingSampleFetch(); controller.cancel(); setDropError(null); setRestoring(true); }}>Restore Plan</button>
         <button className="primary" onClick={choose}>＋ Import STL</button>
       </div>
     </header>
@@ -197,7 +202,7 @@ export function Workbench() {
     </main>
     {(state.error || dropError) && <div className="error-banner" role="alert"><div><strong>Could not import this model</strong><p>{dropError ?? state.error}{state.active && ' The current workpiece is unchanged.'}</p></div><button onClick={() => { controller.dismissError(); setDropError(null); }} aria-label="Dismiss import error">×</button></div>}
     {(fetchingSample || state.phase === 'processing') && <div className="processing-toast" role="status"><span className="spinner" /><div><strong>{fetchingSample ? `Downloading ${fetchingSample}…` : state.status}</strong><span>The current workpiece stays available until you confirm the replacement.</span></div><button onClick={() => { cancelPendingSampleFetch(); controller.cancel(); }}>Cancel import</button></div>}
-    {state.phase === 'confirming' && state.preview && <ImportDialog key={state.preview.sha256} preview={state.preview} restore={state.restore} unsaved={unsaved} replacing={Boolean(state.active)} onConfirm={(unit) => controller.confirm(unit)} onCancel={() => controller.cancel()} />}
+    {state.phase === 'confirming' && state.preview && <ImportDialog key={state.preview.sha256} preview={state.preview} restore={state.restore} unsaved={unsaved} replacing={Boolean(state.active)} returnFocus={importOpenerRef.current} onConfirm={(unit) => controller.confirm(unit)} onCancel={() => controller.cancel()} />}
     {restoring && <RestoreDialog onClose={() => { cancelPendingSampleFetch(); setRestoring(false); }} onRestore={(stl, json) => { cancelPendingSampleFetch(); setRestoring(false); void controller.restore(stl, json); }} />}
     {sampling && <SampleDialog unsaved={unsaved} onSelectSample={handleSelectSample} onClose={() => { cancelPendingSampleFetch(); setSampling(false); }} />}
     {dragging && <div className="drop-overlay"><strong>Drop one STL to inspect</strong><span>Your current model stays unchanged until confirmation.</span></div>}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { DialogClose } from './DialogClose.tsx';
 
 export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, json: File) => void; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement | null>(null);
@@ -18,5 +19,6 @@ export function RestoreDialog({ onRestore, onClose }: { onRestore: (stl: File, j
       <p className="small muted">We verify the saved plan, source fingerprint, units and dimensions before asking you to activate it. Cancel or failure preserves your current workspace.</p>
       <div className="dialog-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={!stl || !json}>Verify files</button></div>
     </form>
+    <DialogClose label="Close restore dialog" onClose={onClose} />
   </dialog>;
 }
